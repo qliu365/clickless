@@ -1,0 +1,8 @@
+# 以下文件/目录不要发给同事（体积大或无用）
+dist/
+build/
+__pycache__/
+*.pyc
+.DS_Store
+Clickless.app/
+*.spec

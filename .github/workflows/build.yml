@@ -1,0 +1,69 @@
+name: Build Clickless
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build exe
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name Clickless `
+            --hidden-import=pynput.keyboard._win32 `
+            --hidden-import=pynput.mouse._win32 `
+            --hidden-import=pyperclip `
+            main.py
+
+      - name: Create zip
+        run: |
+          Compress-Archive -Path dist\Clickless -DestinationPath dist\Clickless-win.zip -Force
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clickless-win
+          path: dist/Clickless-win.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt pyinstaller
+
+      - name: Build app
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name Clickless \
+            --osx-bundle-identifier com.clickless.app \
+            --hidden-import=pynput.keyboard._darwin \
+            --hidden-import=pynput.mouse._darwin \
+            --hidden-import=ApplicationServices \
+            --hidden-import=Quartz \
+            --exclude-module keyboard \
+            main.py
+          cd dist && zip -r Clickless-mac.zip Clickless.app
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clickless-mac
+          path: dist/Clickless-mac.zip
