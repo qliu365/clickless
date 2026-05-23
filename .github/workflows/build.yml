@@ -28,6 +28,7 @@ jobs:
 
       - name: Create zip
         run: |
+          Copy-Item -Path "同事请看.txt" -Destination "dist\Clickless\同事请看.txt" -Force
           Compress-Archive -Path dist\Clickless -DestinationPath dist\Clickless-win.zip -Force
 
       - name: Upload Windows package
