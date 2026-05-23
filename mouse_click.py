@@ -6,6 +6,19 @@ import sys
 import time
 from typing import Optional
 
+_pyautogui_ready = False
+
+
+def _ensure_pyautogui():
+    global _pyautogui_ready
+    import pyautogui
+
+    if not _pyautogui_ready:
+        pyautogui.FAILSAFE = False
+        pyautogui.PAUSE = 0.03
+        _pyautogui_ready = True
+    return pyautogui
+
 
 def perform_click(
     x: int,
@@ -24,6 +37,9 @@ def perform_click(
         is_settle = settle or attempt == 0
         if sys.platform == "darwin":
             if not _perform_click_quartz(x, y, button, settle=is_settle):
+                _perform_click_pynput(x, y, button, settle=is_settle)
+        elif sys.platform == "win32":
+            if not _perform_click_windows(x, y, button, settle=is_settle):
                 _perform_click_pynput(x, y, button, settle=is_settle)
         else:
             if is_settle:
@@ -49,6 +65,9 @@ def perform_double_click(
         time.sleep(0.15)
 
     if sys.platform == "darwin" and _perform_double_click_quartz(x, y, button, settle=settle):
+        return
+
+    if sys.platform == "win32" and _perform_double_click_windows(x, y, button, settle=settle):
         return
 
     from pynput.mouse import Button, Controller
@@ -80,6 +99,9 @@ def perform_drag(
     duration = max(0.2, duration)
 
     if sys.platform == "darwin" and _perform_drag_quartz(x1, y1, x2, y2, button, duration):
+        return
+
+    if sys.platform == "win32" and _perform_drag_windows(x1, y1, x2, y2, button, duration):
         return
 
     from pynput.mouse import Button, Controller
@@ -200,7 +222,7 @@ def _perform_scroll_quartz(dx: float, dy: float) -> None:
 def _perform_scroll_windows(dx: float, dy: float) -> None:
     """Windows pyautogui 滚轮。"""
     try:
-        import pyautogui
+        pyautogui = _ensure_pyautogui()
 
         clicks_y = int(round(float(dy)))
         clicks_x = int(round(float(dx)))
@@ -211,6 +233,63 @@ def _perform_scroll_windows(dx: float, dy: float) -> None:
         time.sleep(0.06)
     except Exception:
         _perform_scroll_pynput(dx, dy)
+
+
+def _perform_click_windows(
+    x: int, y: int, button: str, *, settle: bool = False
+) -> bool:
+    """Windows SendInput 点击（打包版比 pynput 更稳）。"""
+    try:
+        pyautogui = _ensure_pyautogui()
+        btn_map = {"left": "left", "right": "right", "middle": "middle"}
+        btn = btn_map.get(button, "left")
+        pyautogui.moveTo(x, y, duration=0.12 if settle else 0.05)
+        time.sleep(0.15 if settle else 0.08)
+        pyautogui.click(x, y, button=btn)
+        time.sleep(0.12 if settle else 0.08)
+        return True
+    except Exception:
+        return False
+
+
+def _perform_double_click_windows(
+    x: int, y: int, button: str, *, settle: bool = False
+) -> bool:
+    try:
+        pyautogui = _ensure_pyautogui()
+        btn_map = {"left": "left", "right": "right", "middle": "middle"}
+        btn = btn_map.get(button, "left")
+        pyautogui.moveTo(x, y, duration=0.12 if settle else 0.05)
+        time.sleep(0.15 if settle else 0.1)
+        if btn == "left":
+            pyautogui.doubleClick(x, y)
+        else:
+            pyautogui.click(x, y, button=btn, clicks=2, interval=0.08)
+        time.sleep(0.15)
+        return True
+    except Exception:
+        return False
+
+
+def _perform_drag_windows(
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    button: str,
+    duration: float,
+) -> bool:
+    try:
+        pyautogui = _ensure_pyautogui()
+        btn_map = {"left": "left", "right": "right", "middle": "middle"}
+        btn = btn_map.get(button, "left")
+        pyautogui.moveTo(x1, y1, duration=0.08)
+        time.sleep(0.1)
+        pyautogui.drag(x2 - x1, y2 - y1, duration=duration, button=btn)
+        time.sleep(0.1)
+        return True
+    except Exception:
+        return False
 
 
 def _perform_scroll_pynput(dx: float, dy: float) -> None:
@@ -225,12 +304,17 @@ def _warp_cursor(x: int, y: int) -> None:
     """先把鼠标移到目标位置（首次点击更稳）。"""
     if sys.platform == "win32":
         try:
-            import ctypes
-
-            ctypes.windll.user32.SetCursorPos(x, y)
-            time.sleep(0.2)
+            pyautogui = _ensure_pyautogui()
+            pyautogui.moveTo(x, y, duration=0.05)
+            time.sleep(0.15)
         except Exception:
-            pass
+            try:
+                import ctypes
+
+                ctypes.windll.user32.SetCursorPos(x, y)
+                time.sleep(0.2)
+            except Exception:
+                pass
     elif sys.platform == "darwin":
         try:
             from Quartz import (

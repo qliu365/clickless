@@ -9,6 +9,30 @@ import sys
 from pathlib import Path
 
 
+def _configure_windows() -> None:
+    """Windows：DPI 感知 + pyautogui，避免鼠标坐标/点击失效。"""
+    if sys.platform != "win32":
+        return
+
+    try:
+        import ctypes
+
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except Exception:
+            ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
+    try:
+        import pyautogui
+
+        pyautogui.FAILSAFE = False
+        pyautogui.PAUSE = 0.03
+    except Exception:
+        pass
+
+
 def _get_app_root() -> Path:
     """用户数据目录：源码和打包版共用，避免流程文件分散。"""
     if sys.platform == "darwin":
@@ -58,6 +82,7 @@ def ensure_flows_dir() -> None:
 def main() -> None:
     """启动 Clickless 图形界面。"""
     try:
+        _configure_windows()
         ensure_flows_dir()
         _migrate_legacy_flows(FLOWS_DIR)
 

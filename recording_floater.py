@@ -43,7 +43,12 @@ class ControlFloater:
         self.win.lift()
 
     def set_status(self, text: str) -> None:
-        """更新状态文字。"""
+        """更新状态文字（可从回放线程调用）。"""
+        if self._status_label is None:
+            return
+        self.root.after(0, lambda t=text: self._apply_status(t))
+
+    def _apply_status(self, text: str) -> None:
         if self._status_label is not None:
             self._status_label.config(text=text)
 

@@ -794,6 +794,11 @@ class ClicklessApp:
             f"若位置变了，请点第一个应对准的位置；没变则等待即可"
         )
         self.root.update_idletasks()
+        # 在主线程缓存悬浮条区域，避免回放线程访问 Tk 导致 Windows 闪退
+        play_exclude_rects: List[Tuple[int, int, int, int]] = []
+        floater_rect = self._control_floater.bounds()
+        if floater_rect:
+            play_exclude_rects.append(floater_rect)
 
         def on_countdown(remaining: int) -> None:
             msg = (
@@ -804,11 +809,7 @@ class ClicklessApp:
             self._control_floater.set_status(msg)
 
         def exclude_rects() -> List[Tuple[int, int, int, int]]:
-            rects: List[Tuple[int, int, int, int]] = []
-            floater = self._control_floater.bounds()
-            if floater:
-                rects.append(floater)
-            return rects
+            return play_exclude_rects
 
         first_click_index = next(
             (i for i, s in enumerate(steps) if s.get("type") == "click"),
