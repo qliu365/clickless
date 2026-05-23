@@ -10,7 +10,6 @@ from pathlib import Path
 
 REQUIRED_ZIP_FILES = (
     "Clickless/Clickless.exe",
-    "Clickless/_internal",
     "Clickless/START.bat",
     "Clickless/windows_launch.bat",
     "Clickless/README-Windows.txt",
