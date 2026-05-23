@@ -7,9 +7,10 @@ INSTALL (no Python needed)
 2. Open the Clickless folder — you should see:
    - Clickless.exe
    - _internal  (folder — required, do not delete)
+   - START.bat  (recommended — double-click this)
    - windows_launch.bat
    - README-Windows.txt
-3. Double-click windows_launch.bat  OR  Clickless.exe
+3. Double-click START.bat  OR  Clickless.exe
 4. If SmartScreen blocks: click "More info" -> "Run anyway"
 5. If antivirus asks: choose Allow / 允许
 

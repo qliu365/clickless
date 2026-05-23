@@ -7,8 +7,9 @@ Clickless 自动化助手 — Windows 使用说明
 2. 打开 Clickless 文件夹，应看到：
    - Clickless.exe
    - _internal 文件夹（必须有，不能删）
-   - windows_launch.bat
-3. 双击 windows_launch.bat 或 Clickless.exe
+   - START.bat（推荐，双击这个启动）
+   - windows_launch.bat（同上）
+3. 双击 START.bat 或 Clickless.exe
 4. Windows 安全提示：点「更多信息」→「仍要运行」
 5. 杀毒软件拦截：选「允许」
 

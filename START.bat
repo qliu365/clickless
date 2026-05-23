@@ -23,7 +23,7 @@ if not exist "_internal\" (
 )
 
 echo OK. Starting Clickless...
-echo (Windows blocked? Click: More info - Run anyway)
+echo (If blocked by Windows: More info - Run anyway)
 echo.
 start "" "%~dp0Clickless.exe"
 timeout /t 2 /nobreak >nul
