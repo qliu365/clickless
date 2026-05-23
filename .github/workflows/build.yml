@@ -22,6 +22,9 @@ jobs:
         run: |
           pyinstaller --noconfirm --clean clickless.spec
 
+      - name: Smoke test (source)
+        run: python smoke_test.py
+
       - name: Create zip
         run: |
           Copy-Item -Path "README-Windows.txt" -Destination "dist\Clickless\README-Windows.txt" -Force
@@ -30,6 +33,9 @@ jobs:
           Copy-Item -Path "启动 Clickless.vbs" -Destination "dist\Clickless\启动 Clickless.vbs" -Force
           Copy-Item -Path "同事请看.txt" -Destination "dist\Clickless\同事请看.txt" -Force
           Compress-Archive -Path dist\Clickless -DestinationPath dist\Clickless-win.zip -Force
+
+      - name: Smoke test (Windows exe)
+        run: powershell -ExecutionPolicy Bypass -File win_smoke_test.ps1
 
       - name: Upload Windows package
         uses: actions/upload-artifact@v4
