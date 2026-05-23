@@ -27,6 +27,7 @@ jobs:
           Copy-Item -Path "README-Windows.txt" -Destination "dist\Clickless\README-Windows.txt" -Force
           Copy-Item -Path "START.bat" -Destination "dist\Clickless\START.bat" -Force
           Copy-Item -Path "windows_launch.bat" -Destination "dist\Clickless\windows_launch.bat" -Force
+          Copy-Item -Path "启动 Clickless.vbs" -Destination "dist\Clickless\启动 Clickless.vbs" -Force
           Copy-Item -Path "同事请看.txt" -Destination "dist\Clickless\同事请看.txt" -Force
           Compress-Archive -Path dist\Clickless -DestinationPath dist\Clickless-win.zip -Force
 

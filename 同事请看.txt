@@ -1,33 +1,35 @@
 Clickless 自动化助手 — Windows 使用说明
 ========================================
 
-【安装】无需 Python
+【怎么打开？】三种方式，任选一种
 ----------------------------------------
-1. 解压 Clickless-win.zip（必须得到整个 Clickless 文件夹）
-2. 打开 Clickless 文件夹，应看到：
-   - Clickless.exe
-   - _internal 文件夹（必须有，不能删）
-   - START.bat（推荐，双击这个启动）
-   - windows_launch.bat（同上）
-3. 双击 START.bat 或 Clickless.exe
-4. Windows 安全提示：点「更多信息」→「仍要运行」
-5. 杀毒软件拦截：选「允许」
+方式 1（最简单）：双击 Clickless.exe
+方式 2：双击 启动 Clickless.vbs（没有黑窗口）
+方式 3：双击 START.bat（会弹出黑窗口，出现 OK 后看任务栏）
 
 
-【常见错误：打不开 / 闪退】
+【START.bat 黑窗口里只有 OK？】
 ----------------------------------------
-❌ 只把 Clickless.exe 复制到桌面 → 不能用
-   必须保留 exe 和 _internal 文件夹在一起
+这是正常的！黑窗口只是「启动器」。
 
-❌ 只解压了 exe 没解压 _internal → 不能用
+看到下面两行就说明启动成功了：
+  [OK] Clickless is running.
+  [成功] Clickless 已启动
 
-✅ 正确：整个 Clickless 文件夹一起拷贝
+然后请看 **任务栏** 或 **桌面**，找标题叫
+「Clickless 自动化助手」的窗口（中间有个红色圆形按钮）。
+
+黑窗口可以关掉，不影响程序使用。
 
 
-【若仍失败】
+【如果黑窗口显示 FAILED / 失败】
 ----------------------------------------
-查看错误日志（发给技术支持）：
-  C:\Users\你的用户名\AppData\Local\Clickless\clickless-error.log
+1. 直接双击 Clickless.exe 试试
+2. Windows 拦截：点「更多信息」→「仍要运行」
+3. 杀毒软件：选「允许」
+4. 确认 _internal 文件夹和 exe 在同一目录
+5. 把错误日志发给技术支持：
+   C:\Users\你的用户名\AppData\Local\Clickless\clickless-error.log
 
 
 【怎么用】
@@ -40,7 +42,7 @@ Clickless 自动化助手 — Windows 使用说明
 
 【注意】
 ----------------------------------------
-- 点击坐标要在自己电脑上录
+- 流程要在 Windows 上自己录（Mac 录的坐标不能用）
 - 浏览器缩放建议 100%
 - 位置不准：运行时倒计时内点一下应对准的位置
 
