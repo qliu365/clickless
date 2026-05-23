@@ -38,6 +38,9 @@ echo ^>^>^> 开始打包（约 1-3 分钟）...
   --hidden-import=pynput.keyboard._win32 ^
   --hidden-import=pynput.mouse._win32 ^
   --hidden-import=pyperclip ^
+  --hidden-import=keyboard_shortcuts ^
+  --hidden-import=scroll_capture ^
+  --hidden-import=window_bounds ^
   main.py
 if errorlevel 1 (
   echo [错误] 打包失败

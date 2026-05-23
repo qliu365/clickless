@@ -8,3 +8,5 @@ Clickless.app/
 *.spec
 .gh-artifacts/
 Clickless-Windows-src.zip
+Clickless-win.zip
+Clickless-mac.zip
