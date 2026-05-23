@@ -9,7 +9,12 @@ from typing import Callable, List, Optional
 
 from pynput import keyboard, mouse
 
+from window_bounds import attach_drag_window_offset, attach_window_offset
+
+from keyboard_shortcuts import clipboard_action_for_hotkey
+
 if sys.platform == "darwin":
+    from scroll_capture import MacScrollListener
     from text_capture import get_focused_text_value
 
 
@@ -60,6 +65,11 @@ class Recorder:
         self._had_keyboard_since_reset = False
         self._sync_timer: Optional[threading.Timer] = None
         self._sync_lock = threading.Lock()
+        self._pending_press: Optional[object] = None  # (x,y,button) | "ignored"
+        self._last_scroll_merge_time: float = 0.0
+        self._mac_scroll_listener: Optional["MacScrollListener"] = None
+
+    _DRAG_THRESHOLD = 8  # 移动超过此像素数视为拖拽
 
     _MODIFIER_NAMES = {
         "cmd",
@@ -77,21 +87,41 @@ class Recorder:
         "shift_r",
     }
 
-    _SPECIAL_KEYS = {
-        "enter",
-        "return",
-        "tab",
-        "esc",
-        "escape",
-        "up",
-        "down",
-        "left",
-        "right",
-        "home",
-        "end",
-        "page_up",
-        "page_down",
-        "delete",
+    _SPECIAL_KEYS = frozenset(
+        {
+            "enter",
+            "return",
+            "tab",
+            "esc",
+            "escape",
+            "up",
+            "down",
+            "left",
+            "right",
+            "home",
+            "end",
+            "page_up",
+            "page_down",
+            "delete",
+            "insert",
+            "f1",
+            "f2",
+            "f3",
+            "f4",
+            "f5",
+            "f6",
+            "f7",
+            "f8",
+            "f9",
+            "f10",
+            "f11",
+            "f12",
+        }
+    )
+
+    _KEY_ALIASES = {
+        "return": "enter",
+        "escape": "esc",
     }
 
     @property
@@ -114,12 +144,23 @@ class Recorder:
         self._field_baseline = None
         self._baseline_initialized = False
         self._had_keyboard_since_reset = False
+        self._pending_press = None
+        self._last_scroll_merge_time = 0.0
         self._last_event_time = time.time()
         self._recording = True
 
         _patch_pynput_macos_keyboard()
 
-        self._mouse_listener = mouse.Listener(on_click=self._on_click)
+        if sys.platform == "darwin":
+            self._mac_scroll_listener = MacScrollListener(self._on_scroll)
+            self._mac_scroll_listener.start()
+            self._mouse_listener = mouse.Listener(on_click=self._on_click)
+        else:
+            self._mac_scroll_listener = None
+            self._mouse_listener = mouse.Listener(
+                on_click=self._on_click,
+                on_scroll=self._on_scroll,
+            )
         self._keyboard_listener = keyboard.Listener(
             on_press=self._on_key_press,
             on_release=self._on_key_release,
@@ -133,12 +174,13 @@ class Recorder:
             return self.steps
 
         self._cancel_field_sync_timer()
-        if self._use_field_sync:
-            self._flush_pending_field_text()
-        else:
-            self._flush_text_buffer()
+        self._flush_all_pending_text()
 
         self._recording = False
+
+        if self._mac_scroll_listener:
+            self._mac_scroll_listener.stop()
+            self._mac_scroll_listener = None
 
         if self._mouse_listener:
             self._mouse_listener.stop()
@@ -156,6 +198,7 @@ class Recorder:
         self._field_baseline = None
         self._baseline_initialized = False
         self._had_keyboard_since_reset = False
+        self._pending_press = None
         self._last_event_time = None
 
     def _calc_delay(self) -> float:
@@ -219,6 +262,16 @@ class Recorder:
         if new_text:
             self._append_type_text(new_text)
 
+    def _flush_all_pending_text(self) -> None:
+        """提交未保存的文字：优先读输入框（中文 IME），否则用按键缓冲。"""
+        steps_before = len(self._steps)
+        if self._use_field_sync:
+            self._flush_pending_field_text()
+        if len(self._steps) == steps_before:
+            self._flush_text_buffer()
+        else:
+            self._text_buffer = ""
+
     def _flush_pending_field_text(self) -> None:
         """
         立刻把未写入步骤的输入提交（点击/功能键前调用）。
@@ -240,6 +293,7 @@ class Recorder:
 
         if new_text != old_text:
             self._apply_field_diff(old_text, new_text)
+            self._text_buffer = ""
         self._field_baseline = new_text
         self._baseline_initialized = True
 
@@ -290,6 +344,8 @@ class Recorder:
 
         self._apply_field_diff(old_text, new_text)
         self._field_baseline = new_text
+        # 输入框已读到文字，清掉按键缓冲避免重复
+        self._text_buffer = ""
 
     def _reset_field_tracking(self) -> None:
         """点击后重置输入框跟踪，下一段输入重新建立基准。"""
@@ -298,113 +354,214 @@ class Recorder:
         self._had_keyboard_since_reset = False
 
     def _on_click(self, x: int, y: int, button: mouse.Button, pressed: bool) -> None:
-        """鼠标点击：只记录按下瞬间。"""
-        if not self._recording or not pressed:
-            return
-
-        if self._should_record_click and not self._should_record_click(x, y):
-            return
-
-        self._cancel_field_sync_timer()
-        if self._use_field_sync:
-            self._flush_pending_field_text()
-        else:
-            self._flush_text_buffer()
-
-        self._reset_field_tracking()
-
-        step = {
-            "type": "click",
-            "x": int(round(x)),
-            "y": int(round(y)),
-            "button": button.name,  # left / right / middle
-            "delay": self._calc_delay(),
-        }
-        self._append_step(step)
-
-        if self._use_field_sync:
-            # 点击后焦点切换，稍后再抓取输入框基准文本
-            self._schedule_field_sync(delay=0.2)
-
-    def _on_key_press(self, key) -> None:
-        """键盘按下：普通字符进缓冲，功能键/组合键单独成步。"""
+        """鼠标按下/抬起：区分点击与拖拽。"""
         if not self._recording:
             return
 
-        key_name = self._key_to_name(key)
+        ix, iy = int(round(x)), int(round(y))
 
-        # 修饰键：记录按下状态
+        if pressed:
+            if self._should_record_click and not self._should_record_click(ix, iy):
+                self._pending_press = "ignored"
+            else:
+                self._pending_press = (ix, iy, button.name)
+            return
+
+        if self._pending_press in (None, "ignored"):
+            self._pending_press = None
+            return
+
+        x1, y1, btn = self._pending_press
+        self._pending_press = None
+        x2, y2 = ix, iy
+
+        self._cancel_field_sync_timer()
+        self._flush_all_pending_text()
+
+        self._reset_field_tracking()
+
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        if dx >= self._DRAG_THRESHOLD or dy >= self._DRAG_THRESHOLD:
+            if btn == "middle":
+                step = {
+                    "type": "scroll_pan",
+                    "x1": x1,
+                    "y1": y1,
+                    "x2": x2,
+                    "y2": y2,
+                    "delay": self._calc_delay(),
+                }
+            else:
+                step = {
+                    "type": "drag",
+                    "x1": x1,
+                    "y1": y1,
+                    "x2": x2,
+                    "y2": y2,
+                    "button": btn,
+                    "delay": self._calc_delay(),
+                }
+                role = self._drag_scroll_role(x1, y1, x2, y2)
+                if role:
+                    step["role"] = role
+            attach_drag_window_offset(step, x1, y1, x2, y2)
+            self._append_step(step)
+        else:
+            step = {
+                "type": "click",
+                "button": btn,
+                "delay": self._calc_delay(),
+            }
+            attach_window_offset(step, x1, y1)
+            self._append_step(step)
+
+        if self._use_field_sync:
+            self._schedule_field_sync(delay=0.2)
+
+    @staticmethod
+    def _drag_scroll_role(x1: int, y1: int, x2: int, y2: int) -> Optional[str]:
+        """竖向/横向为主的拖拽，视为拖滚动条。"""
+        h = abs(x2 - x1)
+        v = abs(y2 - y1)
+        if v >= 8 and v > h * 1.8:
+            return "scrollbar_v"
+        if h >= 8 and h > v * 1.8:
+            return "scrollbar_h"
+        return None
+
+    def _on_scroll(self, x: int, y: int, dx: float, dy: float) -> None:
+        """滚轮/触控板滚动。"""
+        if not self._recording:
+            return
+
+        ix, iy = int(round(x)), int(round(y))
+        dx_f, dy_f = float(dx), float(dy)
+        if dx_f == 0 and dy_f == 0:
+            return
+
+        if self._should_record_click and not self._should_record_click(ix, iy):
+            return
+
+        self._cancel_field_sync_timer()
+        self._flush_all_pending_text()
+
+        now = time.time()
+        if (
+            self._steps
+            and self._steps[-1].get("type") == "scroll"
+            and abs(self._steps[-1].get("x", 0) - ix) < 80
+            and abs(self._steps[-1].get("y", 0) - iy) < 80
+            and now - self._last_scroll_merge_time < 0.4
+        ):
+            last = self._steps[-1]
+            last["dx"] = last.get("dx", 0) + dx_f
+            last["dy"] = last.get("dy", 0) + dy_f
+            self._last_scroll_merge_time = now
+            if self._on_step:
+                self._on_step(last)
+            return
+
+        step = {
+            "type": "scroll",
+            "x": ix,
+            "y": iy,
+            "dx": dx_f,
+            "dy": dy_f,
+            "delay": self._calc_delay(),
+        }
+        self._last_scroll_merge_time = now
+        self._append_step(step)
+
+    def _on_key_press(self, key) -> None:
+        """组合录制：文字进缓冲，Enter/方向键等功能键单独成步。"""
+        if not self._recording:
+            return
+
+        key_name = self._normalize_key_name(key)
+        if not key_name:
+            return
+
         if key_name in self._MODIFIER_NAMES:
             self._modifiers.add(key_name)
             return
 
-        # 组合键（Command+C / Ctrl+V 等）
         if self._modifiers:
             self._cancel_field_sync_timer()
-            if self._use_field_sync:
-                self._flush_pending_field_text()
-            else:
-                self._flush_text_buffer()
+            self._flush_all_pending_text()
             keys = self._normalize_hotkey_keys(list(self._modifiers), key_name)
-            step = {
-                "type": "hotkey",
-                "keys": keys,
-                "delay": self._calc_delay(),
-            }
-            self._append_step(step)
-            return
-
-        if self._use_field_sync:
-            # 功能键：先同步 IME 未上屏文字，再记录按键
-            if key_name in self._SPECIAL_KEYS:
-                self._cancel_field_sync_timer()
-                self._flush_pending_field_text()
-                step = {
-                    "type": "key",
-                    "key": key_name,
-                    "delay": self._calc_delay(),
-                }
-                self._append_step(step)
-                self._schedule_field_sync(delay=0.1)
-            elif key_name == "space":
-                # 空格常用来选 IME 候选，不在按下时记为 space 键
-                pass
-            elif key_name == "backspace":
-                # 删除由输入框 diff 在 release 后捕获
-                pass
+            action = clipboard_action_for_hotkey(keys)
+            if action == "copy":
+                self._append_step({"type": "copy", "delay": self._calc_delay()})
+            elif action == "paste":
+                self._append_step({"type": "paste", "delay": self._calc_delay()})
             else:
-                # 拼音字母等：等 IME 上屏后再读输入框
-                pass
+                self._append_step(
+                    {"type": "hotkey", "keys": keys, "delay": self._calc_delay()}
+                )
             return
 
-        # --- 非 macOS：按键级录制 ---
         if key_name == "backspace":
             if self._text_buffer:
                 self._text_buffer = self._text_buffer[:-1]
             else:
-                self._flush_text_buffer()
-                step = {"type": "key", "key": "backspace", "delay": self._calc_delay()}
-                self._append_step(step)
+                self._cancel_field_sync_timer()
+                self._flush_all_pending_text()
+                self._append_step(
+                    {"type": "key", "key": "backspace", "delay": self._calc_delay()}
+                )
+            self._had_keyboard_since_reset = True
+            if self._use_field_sync:
+                self._schedule_field_sync(delay=0.12)
             return
 
-        if hasattr(key, "char") and key.char is not None:
-            self._text_buffer += key.char
+        if self._is_typeable_char(key, key_name):
+            self._text_buffer += key_name
+            self._had_keyboard_since_reset = True
+            if self._use_field_sync:
+                self._schedule_field_sync(delay=0.18)
             return
 
-        if key_name is None:
+        if key_name == "space":
+            self._text_buffer += " "
+            self._had_keyboard_since_reset = True
+            if self._use_field_sync:
+                self._schedule_field_sync(delay=0.18)
             return
 
-        self._flush_text_buffer()
-        step = {
-            "type": "key",
-            "key": key_name,
-            "delay": self._calc_delay(),
-        }
-        self._append_step(step)
+        # Enter / 方向键 / Tab 等功能键
+        self._cancel_field_sync_timer()
+        self._flush_all_pending_text()
+        self._append_step(
+            {"type": "key", "key": key_name, "delay": self._calc_delay()}
+        )
+        if self._use_field_sync:
+            self._schedule_field_sync(delay=0.1)
+
+    @staticmethod
+    def _is_typeable_char(key, key_name: str) -> bool:
+        """单个可打印字符（字母、数字、符号）。"""
+        if len(key_name) == 1 and key_name.isprintable() and key_name != " ":
+            return True
+        return hasattr(key, "char") and key.char is not None and len(key.char) == 1
+
+    @classmethod
+    def _normalize_key_name(cls, key) -> Optional[str]:
+        """统一按键名，便于录制与回放。"""
+        try:
+            if hasattr(key, "char") and key.char is not None:
+                return key.char
+            name = key.name if hasattr(key, "name") else str(key)
+            if not name:
+                return None
+            name = name.lower()
+            return cls._KEY_ALIASES.get(name, name)
+        except AttributeError:
+            return None
 
     def _on_key_release(self, key) -> None:
         """修饰键释放时更新状态；macOS 上按键释放后同步输入框文本。"""
-        key_name = self._key_to_name(key)
+        key_name = self._normalize_key_name(key)
         if key_name in self._MODIFIER_NAMES:
             self._modifiers.discard(key_name)
             return
@@ -450,12 +607,3 @@ class Recorder:
                 simplified.append(s)
         return simplified + [main_key]
 
-    @staticmethod
-    def _key_to_name(key) -> Optional[str]:
-        """把 pynput 按键转为字符串，便于 JSON 存储。"""
-        try:
-            if hasattr(key, "char") and key.char is not None:
-                return key.char
-            return key.name if hasattr(key, "name") else str(key)
-        except AttributeError:
-            return None

@@ -10,24 +10,41 @@ from pathlib import Path
 
 
 def _get_app_root() -> Path:
-    """源码运行用项目目录；打包后用用户可写目录。"""
+    """用户数据目录：源码和打包版共用，避免流程文件分散。"""
+    if sys.platform == "darwin":
+        root = Path.home() / "Library" / "Application Support" / "Clickless"
+    elif sys.platform == "win32":
+        root = Path.home() / "AppData" / "Local" / "Clickless"
+    else:
+        root = Path.home() / ".clickless"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _migrate_legacy_flows(flows_dir: Path) -> None:
+    """把旧版项目目录 flows/ 里的流程迁移到统一位置。"""
     if getattr(sys, "frozen", False):
-        if sys.platform == "darwin":
-            root = Path.home() / "Library" / "Application Support" / "Clickless"
-        elif sys.platform == "win32":
-            root = Path.home() / "AppData" / "Local" / "Clickless"
-        else:
-            root = Path.home() / ".clickless"
-        root.mkdir(parents=True, exist_ok=True)
-        return root
-    return Path(__file__).resolve().parent
+        legacy = Path(sys.executable).resolve().parent / "flows"
+    else:
+        legacy = Path(__file__).resolve().parent / "flows"
+
+    if not legacy.is_dir() or legacy.resolve() == flows_dir.resolve():
+        return
+
+    flows_dir.mkdir(parents=True, exist_ok=True)
+    for path in legacy.glob("*.json"):
+        target = flows_dir / path.name
+        if not target.exists():
+            target.write_bytes(path.read_bytes())
 
 
 ROOT_DIR = _get_app_root()
 
 # 源码模式下确保能导入本地模块
-if not getattr(sys, "frozen", False) and str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+if not getattr(sys, "frozen", False):
+    code_dir = Path(__file__).resolve().parent
+    if str(code_dir) not in sys.path:
+        sys.path.insert(0, str(code_dir))
 
 # 流程文件存放目录（运行时自动创建）
 FLOWS_DIR = ROOT_DIR / "flows"
@@ -41,6 +58,7 @@ def ensure_flows_dir() -> None:
 def main() -> None:
     """启动 Clickless 图形界面。"""
     ensure_flows_dir()
+    _migrate_legacy_flows(FLOWS_DIR)
 
     from gui import ClicklessApp
 
