@@ -34,19 +34,17 @@ if errorlevel 1 (
 )
 
 echo ^>^>^> 开始打包（约 1-3 分钟）...
-%PY% -m PyInstaller --noconfirm --clean --windowed --name Clickless ^
-  --hidden-import=pynput.keyboard._win32 ^
-  --hidden-import=pynput.mouse._win32 ^
-  --hidden-import=pyperclip ^
-  --hidden-import=keyboard_shortcuts ^
-  --hidden-import=scroll_capture ^
-  --hidden-import=window_bounds ^
-  main.py
+%PY% -m PyInstaller --noconfirm --clean clickless.spec
 if errorlevel 1 (
   echo [错误] 打包失败
   pause
   exit /b 1
 )
+
+echo ^>^>^> 复制说明文件...
+copy /Y "README-Windows.txt" "dist\Clickless\" >nul
+copy /Y "windows_launch.bat" "dist\Clickless\" >nul
+copy /Y "同事请看.txt" "dist\Clickless\" >nul
 
 echo ^>^>^> 生成 zip...
 cd dist
@@ -66,8 +64,7 @@ echo.
 echo 安装包:
 echo   %CD%\Clickless-win.zip
 echo.
-echo 直接运行:
-echo   %CD%\Clickless\Clickless.exe
+echo 同事用法：解压整个 Clickless 文件夹，双击 windows_launch.bat
 echo.
 pause
 endlocal

@@ -6,6 +6,7 @@ __pycache__/
 .DS_Store
 Clickless.app/
 *.spec
+!clickless.spec
 .gh-artifacts/
 Clickless-Windows-src.zip
 Clickless-win.zip

@@ -57,13 +57,36 @@ def ensure_flows_dir() -> None:
 
 def main() -> None:
     """启动 Clickless 图形界面。"""
-    ensure_flows_dir()
-    _migrate_legacy_flows(FLOWS_DIR)
+    try:
+        ensure_flows_dir()
+        _migrate_legacy_flows(FLOWS_DIR)
 
-    from gui import ClicklessApp
+        from gui import ClicklessApp
 
-    app = ClicklessApp(flows_dir=FLOWS_DIR)
-    app.run()
+        app = ClicklessApp(flows_dir=FLOWS_DIR)
+        app.run()
+    except Exception:
+        import traceback
+
+        log_dir = _get_app_root()
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / "clickless-error.log"
+        log_path.write_text(traceback.format_exc(), encoding="utf-8")
+
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror(
+                "Clickless 启动失败",
+                f"程序出错，请把下面文件发给技术支持：\n\n{log_path}",
+            )
+            root.destroy()
+        except Exception:
+            pass
+        raise
 
 
 if __name__ == "__main__":

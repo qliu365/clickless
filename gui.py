@@ -2,6 +2,7 @@
 界面模块 - Tkinter 图形界面，串联录制、回放与流程管理。
 """
 
+import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 from pathlib import Path
@@ -67,6 +68,9 @@ class ClicklessApp:
 
     def _check_permissions_on_startup(self) -> None:
         """启动时检查 macOS 权限。"""
+        if sys.platform != "darwin":
+            self._set_status("就绪 — 点击红色按钮开始录制")
+            return
         if is_accessibility_granted():
             self._set_status("就绪 — 点击红色按钮开始录制")
             return
@@ -76,6 +80,8 @@ class ClicklessApp:
 
     def _ensure_permissions(self) -> bool:
         """录制/回放前确认权限。"""
+        if sys.platform != "darwin":
+            return True
         if is_accessibility_granted():
             return True
 

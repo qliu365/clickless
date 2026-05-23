@@ -20,17 +20,12 @@ jobs:
 
       - name: Build exe
         run: |
-          pyinstaller --noconfirm --clean --windowed --name Clickless `
-            --hidden-import=pynput.keyboard._win32 `
-            --hidden-import=pynput.mouse._win32 `
-            --hidden-import=pyperclip `
-            --hidden-import=keyboard_shortcuts `
-            --hidden-import=scroll_capture `
-            --hidden-import=window_bounds `
-            main.py
+          pyinstaller --noconfirm --clean clickless.spec
 
       - name: Create zip
         run: |
+          Copy-Item -Path "README-Windows.txt" -Destination "dist\Clickless\README-Windows.txt" -Force
+          Copy-Item -Path "windows_launch.bat" -Destination "dist\Clickless\windows_launch.bat" -Force
           Copy-Item -Path "同事请看.txt" -Destination "dist\Clickless\同事请看.txt" -Force
           Compress-Archive -Path dist\Clickless -DestinationPath dist\Clickless-win.zip -Force
 
