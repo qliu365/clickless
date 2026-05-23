@@ -238,7 +238,9 @@ def _perform_scroll_windows(dx: float, dy: float) -> None:
 def _perform_click_windows(
     x: int, y: int, button: str, *, settle: bool = False
 ) -> bool:
-    """Windows SendInput 点击（打包版比 pynput 更稳）。"""
+    """Windows 点击：先试 ctypes，再 pyautogui。"""
+    if _perform_click_win32(x, y, button, settle=settle):
+        return True
     try:
         pyautogui = _ensure_pyautogui()
         btn_map = {"left": "left", "right": "right", "middle": "middle"}
@@ -247,6 +249,36 @@ def _perform_click_windows(
         time.sleep(0.15 if settle else 0.08)
         pyautogui.click(x, y, button=btn)
         time.sleep(0.12 if settle else 0.08)
+        return True
+    except Exception:
+        return False
+
+
+def _perform_click_win32(
+    x: int, y: int, button: str, *, settle: bool = False
+) -> bool:
+    """Windows API SetCursorPos + mouse_event。"""
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        if settle:
+            time.sleep(0.05)
+        if not user32.SetCursorPos(int(x), int(y)):
+            return False
+        time.sleep(0.15 if settle else 0.08)
+
+        if button == "right":
+            down, up = 0x0008, 0x0010
+        elif button == "middle":
+            down, up = 0x0020, 0x0040
+        else:
+            down, up = 0x0002, 0x0004
+
+        user32.mouse_event(down, 0, 0, 0, 0)
+        time.sleep(0.05)
+        user32.mouse_event(up, 0, 0, 0, 0)
+        time.sleep(0.1)
         return True
     except Exception:
         return False
@@ -304,17 +336,19 @@ def _warp_cursor(x: int, y: int) -> None:
     """先把鼠标移到目标位置（首次点击更稳）。"""
     if sys.platform == "win32":
         try:
+            import ctypes
+
+            if ctypes.windll.user32.SetCursorPos(int(x), int(y)):
+                time.sleep(0.15)
+                return
+        except Exception:
+            pass
+        try:
             pyautogui = _ensure_pyautogui()
             pyautogui.moveTo(x, y, duration=0.05)
             time.sleep(0.15)
         except Exception:
-            try:
-                import ctypes
-
-                ctypes.windll.user32.SetCursorPos(x, y)
-                time.sleep(0.2)
-            except Exception:
-                pass
+            pass
     elif sys.platform == "darwin":
         try:
             from Quartz import (

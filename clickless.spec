@@ -31,6 +31,7 @@ hiddenimports = [
     "player",
     "storage",
     "mouse_click",
+    "self_test",
     "click_marker",
     "recording_floater",
     "permissions",

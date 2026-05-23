@@ -81,6 +81,11 @@ def ensure_flows_dir() -> None:
 
 def main() -> None:
     """启动 Clickless 图形界面。"""
+    if "--self-test" in sys.argv:
+        from self_test import run_self_test
+
+        raise SystemExit(run_self_test())
+
     try:
         _configure_windows()
         ensure_flows_dir()

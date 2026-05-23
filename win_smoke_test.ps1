@@ -50,4 +50,18 @@ if ($proc.HasExited) {
 
 Write-Host "[OK] Clickless.exe still running after 8s"
 Stop-Process -Id $proc.Id -Force
+
+Write-Host "Running mouse self-test..."
+$env:CLICKLESS_CI = "1"
+$test = Start-Process -FilePath (Join-Path $AppDir "Clickless.exe") `
+    -ArgumentList "--self-test" `
+    -WorkingDirectory $AppDir `
+    -PassThru `
+    -Wait `
+    -WindowStyle Normal
+if ($test.ExitCode -ne 0) {
+    $log = Join-Path $env:LOCALAPPDATA "Clickless\self-test.log"
+    if (Test-Path $log) { Get-Content $log }
+    throw "Self-test failed with exit code $($test.ExitCode)"
+}
 Write-Host "WINDOWS SMOKE OK"
