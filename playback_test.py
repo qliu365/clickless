@@ -56,8 +56,10 @@ def main() -> int:
     poll()
 
     sw, sh = _get_screen_size()
-    target_x, target_y = sw // 2, sh // 2
     start = _get_cursor_pos()
+    # 目标点避开当前位置，避免光标已在中心时误判
+    target_x = max(80, min(sw - 80, 200 if start[0] > sw // 2 else sw - 200))
+    target_y = max(80, min(sh - 80, 200 if start[1] > sh // 2 else sh - 200))
 
     player = Player()
     steps = [{"type": "click", "x": target_x, "y": target_y, "button": "left", "delay": 0}]
