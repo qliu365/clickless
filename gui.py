@@ -3,10 +3,12 @@
 """
 
 import sys
+import threading
+import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from click_marker import ClickMarker
 from permissions import (
@@ -346,11 +348,18 @@ class ClicklessApp:
         return True
 
     def _hide_for_playback(self) -> None:
-        """回放时完全隐藏 Clickless，避免窗口挡住网页点击。"""
-        self._control_floater.hide()
+        """回放时隐藏 Clickless，避免窗口挡住网页点击。"""
         self._click_marker.close_all()
         try:
-            self.root.withdraw()
+            self.root.update_idletasks()
+            if sys.platform == "win32":
+                # withdraw 后 Windows 会阻止后台线程注入鼠标；改移到屏幕外
+                self._saved_playback_geometry = self.root.geometry()
+                self.root.geometry("1x1+-200+-200")
+                self.root.lower()
+            else:
+                self._control_floater.hide()
+                self.root.withdraw()
             self.root.update_idletasks()
         except tk.TclError:
             pass
@@ -358,11 +367,38 @@ class ClicklessApp:
     def _show_after_playback(self) -> None:
         """回放结束后恢复主窗口。"""
         try:
+            if sys.platform == "win32" and getattr(self, "_saved_playback_geometry", None):
+                self.root.geometry(self._saved_playback_geometry)
             self.root.deiconify()
             self.root.lift()
             self.root.focus_force()
         except tk.TclError:
             pass
+
+    def _run_on_main_thread(self, fn: Callable[[], None], *, timeout: float = 120.0) -> None:
+        """Windows 回放线程把鼠标/键盘操作切回 Tk 主线程。"""
+        if threading.current_thread() is threading.main_thread():
+            fn()
+            return
+
+        state = {"done": False, "error": None}
+
+        def wrapper() -> None:
+            try:
+                fn()
+            except Exception as exc:
+                state["error"] = exc
+            finally:
+                state["done"] = True
+
+        self.root.after(0, wrapper)
+        deadline = time.time() + timeout
+        while not state["done"]:
+            if time.time() > deadline:
+                raise TimeoutError("回放步骤超时")
+            time.sleep(0.01)
+        if state["error"] is not None:
+            raise state["error"]
 
     def _hide_main_for_recording(self) -> None:
         """录制时把主窗口移到屏幕外，不挡住网页。"""
@@ -812,12 +848,16 @@ class ClicklessApp:
             return play_exclude_rects
 
         first_click_index = next(
-            (i for i, s in enumerate(steps) if s.get("type") == "click"),
+            (
+                i
+                for i, s in enumerate(steps)
+                if s.get("type") in ("click", "double_click")
+            ),
             None,
         )
 
         def on_before_step(index: int, step: dict) -> None:
-            if step.get("type") == "click":
+            if step.get("type") in ("click", "double_click"):
                 hint = (
                     " — 首次点击会稍等，请保持浏览器在最前面"
                     if index == first_click_index
@@ -869,6 +909,7 @@ class ClicklessApp:
             on_done=on_done,
             on_error=on_error,
             exclude_rects=exclude_rects,
+            run_on_main=self._run_on_main_thread if sys.platform == "win32" else None,
         )
 
     def _on_run_current(self) -> None:

@@ -7,6 +7,8 @@ import threading
 import time
 from typing import Callable, List, Optional, Tuple
 
+RunOnMain = Callable[[Callable[[], None]], None]
+
 from pynput import mouse
 from pynput.keyboard import Controller as KeyboardController
 from pynput.keyboard import Key
@@ -270,6 +272,7 @@ class Player:
         on_done: Optional[Callable[[], None]] = None,
         on_error: Optional[Callable[[Exception], None]] = None,
         exclude_rects: Optional[Callable[[], List[Tuple[int, int, int, int]]]] = None,
+        run_on_main: Optional[RunOnMain] = None,
     ) -> None:
         """在后台线程中回放步骤。"""
         if self.is_playing:
@@ -287,6 +290,7 @@ class Player:
                 on_done,
                 on_error,
                 exclude_rects,
+                run_on_main,
             ),
             daemon=True,
         )
@@ -306,6 +310,7 @@ class Player:
         on_done: Optional[Callable[[], None]],
         on_error: Optional[Callable[[Exception], None]],
         exclude_rects: Optional[Callable[[], List[Tuple[int, int, int, int]]]],
+        run_on_main: Optional[RunOnMain],
     ) -> None:
         listener: Optional[mouse.Listener] = None
         try:
@@ -314,7 +319,10 @@ class Player:
             has_pointer_steps = _first_pointer_anchor(steps) is not None
             calibration: dict = {"x": None, "y": None}
 
-            if has_pointer_steps:
+            # Windows 上 pynput 监听会干扰后续鼠标注入，跳过运行前对齐监听
+            use_calibration_listener = has_pointer_steps and sys.platform != "win32"
+
+            if use_calibration_listener:
 
                 def _on_calibration_click(x: float, y: float, button: mouse.Button, pressed: bool) -> None:
                     if not pressed or button != mouse.Button.left:
@@ -373,7 +381,11 @@ class Player:
                 if on_before_step:
                     on_before_step(index, step)
 
-                self._execute_step(step, first_click_pending=first_click_pending)
+                self._execute_step(
+                    step,
+                    first_click_pending=first_click_pending,
+                    run_on_main=run_on_main,
+                )
 
                 if step.get("type") in ("click", "double_click") and first_click_pending:
                     first_click_pending = False
@@ -393,8 +405,25 @@ class Player:
                 listener.stop()
             clear_playback_offset()
 
-    def _execute_step(self, step: dict, *, first_click_pending: bool = False) -> None:
-        """执行单步操作。"""
+    def _execute_step(
+        self,
+        step: dict,
+        *,
+        first_click_pending: bool = False,
+        run_on_main: Optional[RunOnMain] = None,
+    ) -> None:
+        """执行单步操作。Windows 上鼠标/键盘必须在主线程注入。"""
+
+        def run() -> None:
+            self._execute_step_impl(step, first_click_pending=first_click_pending)
+
+        if run_on_main and sys.platform == "win32":
+            run_on_main(run)
+        else:
+            run()
+
+    def _execute_step_impl(self, step: dict, *, first_click_pending: bool = False) -> None:
+        """实际执行单步（应在 Windows 主线程调用）。"""
         step_type = step.get("type")
 
         if step_type == "click":

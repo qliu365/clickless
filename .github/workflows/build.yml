@@ -23,7 +23,9 @@ jobs:
           pyinstaller --noconfirm --clean clickless.spec
 
       - name: Smoke test (source)
-        run: python smoke_test.py
+        run: |
+          python smoke_test.py
+          python playback_test.py
 
       - name: Create zip
         run: |
