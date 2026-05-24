@@ -110,8 +110,8 @@ def main() -> None:
             root = tk.Tk()
             root.withdraw()
             messagebox.showerror(
-                "Clickless 启动失败",
-                f"程序出错，请把下面文件发给技术支持：\n\n{log_path}",
+                "Clickless failed to start",
+                f"An error occurred. Send this file to support:\n\n{log_path}",
             )
             root.destroy()
         except Exception:

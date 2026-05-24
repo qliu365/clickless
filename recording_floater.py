@@ -107,7 +107,7 @@ class ControlFloater:
         )
         stop.pack(side=tk.LEFT)
         stop.create_rectangle(2, 2, 70, 26, fill="white", outline="")
-        stop.create_text(36, 14, text="停止", fill=self._color, font=("Helvetica", 11, "bold"))
+        stop.create_text(36, 14, text="Stop", fill=self._color, font=("Helvetica", 11, "bold"))
         stop.bind("<Button-1>", lambda _e: self.on_stop())
 
         self._status_label = tk.Label(

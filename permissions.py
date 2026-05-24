@@ -68,19 +68,19 @@ def open_input_monitoring_settings() -> None:
 def permission_hint() -> str:
     if sys.platform == "darwin":
         return (
-            "Clickless 需要系统权限才能录制和模拟鼠标/键盘：\n\n"
-            "1. 系统设置 → 隐私与安全性 → 辅助功能\n"
-            "   勾选 Terminal（或 Python / Clickless）\n\n"
-            "2. 系统设置 → 隐私与安全性 → 输入监控\n"
-            "   同样勾选 Terminal / Python / Clickless\n\n"
-            "勾选后请完全退出并重新打开本程序。"
+            "Clickless needs system permissions to record and simulate mouse/keyboard:\n\n"
+            "1. System Settings → Privacy & Security → Accessibility\n"
+            "   Enable Terminal (or Python / Clickless)\n\n"
+            "2. System Settings → Privacy & Security → Input Monitoring\n"
+            "   Enable Terminal / Python / Clickless as well\n\n"
+            "Quit and reopen this app after enabling."
         )
     if sys.platform == "win32":
         return (
-            "Windows 版 Clickless 一般不需要像 macOS 那样单独授权。\n\n"
-            "若杀毒软件弹出拦截，请选择「允许」。\n"
-            "运行回放前请切换到浏览器，并手动点一下网页空白处。\n\n"
-            "中文输入：Windows 上录制中文可能不完整，"
-            "可先在 Mac 上录好流程 JSON 发给同事，或在 Windows 上录英文/数字步骤。"
+            "Clickless on Windows usually does not need separate permission prompts.\n\n"
+            "If antivirus blocks the app, choose Allow.\n"
+            "Before playback, switch to the target window.\n\n"
+            "Note: Chinese text input may not record fully on Windows; "
+            "use English/numbers or re-record on Windows."
         )
-    return "请确保本程序有权限控制鼠标和键盘。"
+    return "Ensure this app can control the mouse and keyboard."

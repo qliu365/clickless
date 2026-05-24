@@ -511,4 +511,4 @@ class Player:
                 _perform_hotkey(keys)
 
         else:
-            raise ValueError(f"未知步骤类型: {step_type}")
+            raise ValueError(f"Unknown step type: {step_type}")

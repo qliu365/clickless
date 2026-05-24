@@ -51,14 +51,14 @@ class ClicklessApp:
         self._controls_locked = False
 
         self.root = tk.Tk()
-        self.root.title("Clickless 自动化助手")
+        self.root.title("Clickless Automation")
         self.root.geometry("680x620")
         self.root.minsize(560, 520)
         self.root.configure(bg=COLOR_BG)
 
-        self._status_var = tk.StringVar(value="就绪 — 点击红色按钮开始录制")
+        self._status_var = tk.StringVar(value="Ready — click the red button to start recording")
         self._flow_name_var = tk.StringVar()
-        self._record_hint_var = tk.StringVar(value="点击录制")
+        self._record_hint_var = tk.StringVar(value="Click to record")
         self._current_steps: List[dict] = []
 
         self._click_marker = ClickMarker(self.root)
@@ -74,14 +74,14 @@ class ClicklessApp:
     def _check_permissions_on_startup(self) -> None:
         """启动时检查 macOS 权限。"""
         if sys.platform != "darwin":
-            self._set_status("就绪 — 点击红色按钮开始录制")
+            self._set_status("Ready — click the red button to start recording")
             return
         if is_accessibility_granted():
-            self._set_status("就绪 — 点击红色按钮开始录制")
+            self._set_status("Ready — click the red button to start recording")
             return
-        self._set_status("缺少系统权限，鼠标/键盘将无法工作")
+        self._set_status("Missing permissions — mouse/keyboard may not work")
         request_accessibility_prompt()
-        messagebox.showwarning("需要权限", permission_hint())
+        messagebox.showwarning("Permissions Required", permission_hint())
 
     def _ensure_permissions(self) -> bool:
         """录制/回放前确认权限。"""
@@ -95,8 +95,8 @@ class ClicklessApp:
             return True
 
         answer = messagebox.askyesnocancel(
-            "需要权限",
-            permission_hint() + "\n\n是 = 打开辅助功能设置\n否 = 打开输入监控设置",
+            "Permissions Required",
+            permission_hint() + "\n\nYes = Open Accessibility settings\nNo = Open Input Monitoring settings",
         )
         if answer is True:
             open_accessibility_settings()
@@ -174,7 +174,7 @@ class ClicklessApp:
 
         self._btn_run = self._create_canvas_button(
             action_col,
-            text="运行",
+            text="Run",
             fill=COLOR_GREEN,
             active_fill=COLOR_GREEN_ACTIVE,
             command=self._on_run_current,
@@ -185,7 +185,7 @@ class ClicklessApp:
 
         self._btn_stop_play = self._create_canvas_button(
             action_col,
-            text="停止回放",
+            text="Stop",
             fill=COLOR_GRAY,
             active_fill=COLOR_GRAY_ACTIVE,
             command=self._on_stop_playback,
@@ -197,7 +197,7 @@ class ClicklessApp:
 
         tk.Label(
             hero_frame,
-            text="录制：文字+Enter/方向键+点击+滚轮+拖拽；Ctrl/Cmd+C/V 自动识别为复制/粘贴。",
+            text="Record: text, Enter, arrows, clicks, scroll, drag; Ctrl/Cmd+C/V = copy/paste.",
             font=("Helvetica", 10),
             fg=COLOR_MUTED,
             bg=COLOR_BG,
@@ -205,8 +205,8 @@ class ClicklessApp:
             justify=tk.LEFT,
         ).pack(anchor=tk.W, pady=(12, 0))
 
-        # 当前步骤预览
-        steps_frame = ttk.LabelFrame(self.root, text="当前步骤", padding=10)
+        # Current steps preview
+        steps_frame = ttk.LabelFrame(self.root, text="Current Steps", padding=10)
         steps_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(4, 8))
 
         steps_scroll = ttk.Scrollbar(steps_frame)
@@ -219,20 +219,20 @@ class ClicklessApp:
         steps_scroll.config(command=self._steps_list.yview)
         self._steps_list.bind("<<ListboxSelect>>", self._on_step_list_select)
 
-        # 保存流程
-        save_frame = ttk.LabelFrame(self.root, text="保存流程", padding=10)
+        # Save flow
+        save_frame = ttk.LabelFrame(self.root, text="Save Flow", padding=10)
         save_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
 
         save_row = ttk.Frame(save_frame)
         save_row.pack(fill=tk.X)
-        ttk.Label(save_row, text="名称：").pack(side=tk.LEFT)
+        ttk.Label(save_row, text="Name:").pack(side=tk.LEFT)
         ttk.Entry(save_row, textvariable=self._flow_name_var, width=30).pack(
             side=tk.LEFT, padx=(4, 8), fill=tk.X, expand=True
         )
-        ttk.Button(save_row, text="保存", command=self._on_save).pack(side=tk.LEFT)
+        ttk.Button(save_row, text="Save", command=self._on_save).pack(side=tk.LEFT)
 
-        # 已保存流程
-        flows_frame = ttk.LabelFrame(self.root, text="已保存流程", padding=10)
+        # Saved flows
+        flows_frame = ttk.LabelFrame(self.root, text="Saved Flows", padding=10)
         flows_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
 
         flows_scroll = ttk.Scrollbar(flows_frame)
@@ -249,16 +249,16 @@ class ClicklessApp:
         flows_btn_row = ttk.Frame(flows_frame)
         flows_btn_row.pack(fill=tk.X, pady=(8, 0))
 
-        ttk.Button(flows_btn_row, text="运行选中", command=self._on_run_selected).pack(
+        ttk.Button(flows_btn_row, text="Run Selected", command=self._on_run_selected).pack(
             side=tk.LEFT
         )
-        ttk.Button(flows_btn_row, text="保存并运行", command=self._on_save_and_run).pack(
+        ttk.Button(flows_btn_row, text="Save & Run", command=self._on_save_and_run).pack(
             side=tk.LEFT, padx=(8, 0)
         )
-        ttk.Button(flows_btn_row, text="删除", command=self._on_delete_selected).pack(
+        ttk.Button(flows_btn_row, text="Delete", command=self._on_delete_selected).pack(
             side=tk.LEFT, padx=(8, 0)
         )
-        ttk.Button(flows_btn_row, text="刷新", command=self._refresh_flow_list).pack(
+        ttk.Button(flows_btn_row, text="Refresh", command=self._refresh_flow_list).pack(
             side=tk.LEFT, padx=(8, 0)
         )
 
@@ -410,7 +410,7 @@ class ClicklessApp:
 
         self._main_thread_queue.put(job)
         if not done.wait(timeout):
-            raise TimeoutError("回放步骤超时")
+            raise TimeoutError("Playback step timed out")
         if state["error"] is not None:
             raise state["error"]
 
@@ -466,7 +466,7 @@ class ClicklessApp:
         if step.get("type") == "click":
             self._show_click_marker_for_step(step, COLOR_RED_IDLE, f"#{index + 1}")
             self._set_status(
-                f"步骤 {index + 1} 落点：({step['x']}, {step['y']}) — 请看屏幕红圈"
+                f"Step {index + 1} at ({step['x']}, {step['y']}) — see red circle on screen"
             )
 
     def _on_floater_stop(self) -> None:
@@ -479,16 +479,16 @@ class ClicklessApp:
     def _show_record_floater(self) -> None:
         self._floater_mode = "record"
         self._control_floater.show(
-            title="录制中",
-            status="点停止结束录制",
+            title="Recording",
+            status="Click Stop to finish",
             color=ControlFloater.COLOR_RECORD,
         )
 
     def _show_play_floater(self, label: str) -> None:
         self._floater_mode = "play"
         self._control_floater.show(
-            title="运行中",
-            status=f"「{label}」准备执行…",
+            title="Running",
+            status=f"'{label}' starting…",
             color=ControlFloater.COLOR_PLAY,
         )
 
@@ -503,22 +503,22 @@ class ClicklessApp:
         name = self._flow_name_var.get().strip()
         if name and self.storage.exists(name):
             if messagebox.askyesno(
-                "保存流程",
-                f"是否把当前 {len(self._current_steps)} 步更新到「{name}」？\n\n"
-                "保存后可在下方「已保存流程」里直接运行。",
+                "Save Flow",
+                f"Update '{name}' with the current {len(self._current_steps)} steps?\n\n"
+                "You can run it from Saved Flows below.",
             ):
                 try:
                     self.storage.save(name, self._current_steps)
                     self._refresh_flow_list()
-                    self._set_status(f"已保存「{name}」— 可在下方选中后点「运行选中」")
+                    self._set_status(f"Saved '{name}' — select it below and click Run Selected")
                 except (ValueError, OSError) as exc:
-                    messagebox.showerror("保存失败", str(exc))
+                    messagebox.showerror("Save Failed", str(exc))
             return
 
         if messagebox.askyesno(
-            "保存流程",
-            f"已录制 {len(self._current_steps)} 步。\n\n"
-            "是否现在保存？保存后可在「已保存流程」里随时运行。",
+            "Save Flow",
+            f"Recorded {len(self._current_steps)} steps.\n\n"
+            "Save now? You can run it anytime from Saved Flows.",
         ):
             self._on_save()
 
@@ -537,13 +537,13 @@ class ClicklessApp:
             # 录制中显示白色方块（停止图标）
             self._record_canvas.coords(self._record_inner, 36, 36, 60, 60)
             self._record_canvas.itemconfig(self._record_inner, fill="white")
-            self._record_hint_var.set("右下角点停止")
+            self._record_hint_var.set("Click Stop (bottom-right)")
         else:
             self._record_canvas.itemconfig(self._record_outer, fill=COLOR_RED_IDLE)
-            # idle 显示白色圆点
+            # idle: white dot
             self._record_canvas.coords(self._record_inner, 32, 32, 64, 64)
             self._record_canvas.itemconfig(self._record_inner, fill="white")
-            self._record_hint_var.set("点击录制")
+            self._record_hint_var.set("Click to record")
 
     def _set_controls_locked(self, locked: bool) -> None:
         """回放期间锁定录制/运行按钮。"""
@@ -572,30 +572,30 @@ class ClicklessApp:
 
         if step_type == "click":
             return (
-                f"{index + 1}. 点击 ({step['x']}, {step['y']}) "
-                f"[{step.get('button', 'left')}] 等待 {delay}s"
+                f"{index + 1}. Click ({step['x']}, {step['y']}) "
+                f"[{step.get('button', 'left')}] wait {delay}s"
             )
         if step_type == "double_click":
             return (
-                f"{index + 1}. 双击 ({step['x']}, {step['y']}) "
-                f"[{step.get('button', 'left')}] 等待 {delay}s"
+                f"{index + 1}. Double-click ({step['x']}, {step['y']}) "
+                f"[{step.get('button', 'left')}] wait {delay}s"
             )
         if step_type == "drag":
             role = step.get("role")
             if role == "scrollbar_v":
-                label = "拖竖滚动条"
+                label = "Drag vertical scrollbar"
             elif role == "scrollbar_h":
-                label = "拖横滚动条"
+                label = "Drag horizontal scrollbar"
             else:
-                label = "拖拽"
+                label = "Drag"
             return (
                 f"{index + 1}. {label} ({step['x1']},{step['y1']}) → "
-                f"({step['x2']},{step['y2']}) 等待 {delay}s"
+                f"({step['x2']},{step['y2']}) wait {delay}s"
             )
         if step_type == "scroll_pan":
             return (
-                f"{index + 1}. 中键平移 ({step['x1']},{step['y1']}) → "
-                f"({step['x2']},{step['y2']}) 等待 {delay}s"
+                f"{index + 1}. Middle-button pan ({step['x1']},{step['y1']}) → "
+                f"({step['x2']},{step['y2']}) wait {delay}s"
             )
         if step_type == "scroll":
             parts = []
@@ -604,13 +604,13 @@ class ClicklessApp:
             if abs(dy) >= 0.01:
                 lines = abs(int(round(dy / 8))) if abs(dy) > 3 else abs(int(round(dy)))
                 lines = max(1, lines)
-                parts.append(f"{'上' if dy > 0 else '下'}{lines}")
+                parts.append(f"{'up' if dy > 0 else 'down'} {lines}")
             if abs(dx) >= 0.01:
                 lines = abs(int(round(dx / 8))) if abs(dx) > 3 else abs(int(round(dx)))
                 lines = max(1, lines)
-                parts.append(f"{'右' if dx > 0 else '左'}{lines}")
-            label = "滚轮 " + " ".join(parts) if parts else "滚轮"
-            return f"{index + 1}. {label} 等待 {delay}s"
+                parts.append(f"{'right' if dx > 0 else 'left'} {lines}")
+            label = "Scroll " + " ".join(parts) if parts else "Scroll"
+            return f"{index + 1}. {label} wait {delay}s"
         if step_type == "key" and step.get("key", "") in (
             "page_up",
             "page_down",
@@ -621,28 +621,28 @@ class ClicklessApp:
             "left",
             "right",
         ):
-            return f"{index + 1}. 键盘滚动 [{step.get('key', '')}] 等待 {delay}s"
+            return f"{index + 1}. Key scroll [{step.get('key', '')}] wait {delay}s"
         if step_type == "type":
             text = step.get("text", "")
             display = text if len(text) <= 20 else text[:20] + "..."
-            return f'{index + 1}. 输入 "{display}" 等待 {delay}s'
+            return f'{index + 1}. Type "{display}" wait {delay}s'
         if step_type == "key":
-            return f"{index + 1}. 按键 [{step.get('key', '')}] 等待 {delay}s"
+            return f"{index + 1}. Key [{step.get('key', '')}] wait {delay}s"
         if step_type == "copy":
-            return f"{index + 1}. 复制 (Ctrl/Cmd+C) 等待 {delay}s"
+            return f"{index + 1}. Copy (Ctrl/Cmd+C) wait {delay}s"
         if step_type == "paste":
-            return f"{index + 1}. 粘贴 (Ctrl/Cmd+V) 等待 {delay}s"
+            return f"{index + 1}. Paste (Ctrl/Cmd+V) wait {delay}s"
         if step_type == "hotkey":
             keys = step.get("keys", [])
             action_label = {
-                "copy": "复制 (Ctrl/Cmd+C)",
-                "paste": "粘贴 (Ctrl/Cmd+V)",
+                "copy": "Copy (Ctrl/Cmd+C)",
+                "paste": "Paste (Ctrl/Cmd+V)",
             }.get(clipboard_action_for_hotkey(keys) or "")
             if action_label:
-                return f"{index + 1}. {action_label} 等待 {delay}s"
+                return f"{index + 1}. {action_label} wait {delay}s"
             keys_str = "+".join(keys)
-            return f"{index + 1}. 组合键 [{keys_str}] 等待 {delay}s"
-        return f"{index + 1}. 未知步骤 {step}"
+            return f"{index + 1}. Hotkey [{keys_str}] wait {delay}s"
+        return f"{index + 1}. Unknown step {step}"
 
     def _refresh_steps_list(self) -> None:
         """刷新当前步骤列表显示。"""
@@ -654,7 +654,7 @@ class ClicklessApp:
         """刷新已保存流程列表。"""
         self._flows_list.delete(0, tk.END)
         for flow in self.storage.list_flows():
-            line = f"{flow['name']}（{flow['step_count']} 步）"
+            line = f"{flow['name']} ({flow['step_count']} steps)"
             self._flows_list.insert(tk.END, line)
 
     def _get_selected_flow_name(self) -> Optional[str]:
@@ -684,7 +684,7 @@ class ClicklessApp:
     def _on_start_record(self) -> None:
         """开始录制。"""
         if self.player.is_playing:
-            messagebox.showwarning("提示", "请先停止回放。")
+            messagebox.showwarning("Notice", "Stop playback first.")
             return
         if not self._ensure_permissions():
             return
@@ -701,31 +701,31 @@ class ClicklessApp:
                 # 录制时不弹标记（会挡在网页/input 上，导致点不进去）
                 if step.get("type") == "click":
                     self._set_status(
-                        f"已记录点击 ({int(step['x'])}, {int(step['y'])}) "
-                        f"— 共 {len(self._current_steps)} 步"
+                        f"Recorded click ({int(step['x'])}, {int(step['y'])}) "
+                        f"— {len(self._current_steps)} steps total"
                     )
                 elif step.get("type") == "type":
                     preview = step.get("text", "")[:12]
                     self._set_status(
-                        f'已记录输入 "{preview}" — 共 {len(self._current_steps)} 步'
+                        f'Recorded text "{preview}" — {len(self._current_steps)} steps total'
                     )
                 elif step.get("type") == "drag":
                     self._set_status(
-                        f"已记录拖拽 ({step['x1']},{step['y1']})→"
-                        f"({step['x2']},{step['y2']}) — 共 {len(self._current_steps)} 步"
+                        f"Recorded drag ({step['x1']},{step['y1']})→"
+                        f"({step['x2']},{step['y2']}) — {len(self._current_steps)} steps total"
                     )
                 elif step.get("type") == "scroll":
                     dy, dx = step.get("dy", 0), step.get("dx", 0)
                     self._set_status(
-                        f"已记录滚轮 dx={dx} dy={dy} — 共 {len(self._current_steps)} 步"
+                        f"Recorded scroll dx={dx} dy={dy} — {len(self._current_steps)} steps total"
                     )
                 elif step.get("type") == "scroll_pan":
                     self._set_status(
-                        f"已记录中键平移 ({step['x1']},{step['y1']})→"
-                        f"({step['x2']},{step['y2']}) — 共 {len(self._current_steps)} 步"
+                        f"Recorded middle pan ({step['x1']},{step['y1']})→"
+                        f"({step['x2']},{step['y2']}) — {len(self._current_steps)} steps total"
                     )
                 else:
-                    self._set_status(f"正在录制… 已记录 {len(self._current_steps)} 步")
+                    self._set_status(f"Recording… {len(self._current_steps)} steps captured")
 
             self.root.after(0, update)
 
@@ -739,7 +739,7 @@ class ClicklessApp:
         self._set_canvas_button_enabled(self._btn_run, False)
         self._hide_main_for_recording()
         self.root.after(600, self._show_record_floater)
-        self._set_status("正在录制 — 请切换到浏览器操作（右下角可停止）")
+        self._set_status("Recording — switch to your app (click Stop at bottom-right)")
 
     def _on_stop_record(self) -> None:
         """停止录制。"""
@@ -754,7 +754,7 @@ class ClicklessApp:
         self._set_red_button_recording(False)
         self._set_canvas_button_enabled(self._btn_run, True)
         self._set_status(
-            f"录制已停止，共 {len(self._current_steps)} 步 — 可保存或直接运行"
+            f"Recording stopped — {len(self._current_steps)} steps. Save or run now."
         )
         self._offer_save_after_record()
 
@@ -762,51 +762,51 @@ class ClicklessApp:
         """保存当前步骤为流程文件。"""
         name = self._flow_name_var.get().strip()
         if not name:
-            messagebox.showwarning("提示", "请输入流程名称。")
+            messagebox.showwarning("Notice", "Enter a flow name.")
             return
         if not self._current_steps:
-            messagebox.showwarning("提示", "没有可保存的步骤，请先录制。")
+            messagebox.showwarning("Notice", "No steps to save. Record a flow first.")
             return
 
         try:
             self.storage.save(name, self._current_steps)
             self._refresh_flow_list()
-            self._set_status(f"已保存流程：{name}")
-            messagebox.showinfo("成功", f"流程「{name}」已保存。")
+            self._set_status(f"Saved flow: {name}")
+            messagebox.showinfo("Success", f"Flow '{name}' saved.")
         except (ValueError, OSError) as exc:
-            messagebox.showerror("保存失败", str(exc))
+            messagebox.showerror("Save Failed", str(exc))
 
     def _on_save_and_run(self) -> None:
         """保存当前步骤后立即运行。"""
         name = self._flow_name_var.get().strip()
         if not name:
-            messagebox.showwarning("提示", "请输入流程名称。")
+            messagebox.showwarning("Notice", "Enter a flow name.")
             return
         if not self._current_steps:
-            messagebox.showwarning("提示", "没有可保存的步骤，请先录制。")
+            messagebox.showwarning("Notice", "No steps to save. Record a flow first.")
             return
         try:
             self.storage.save(name, self._current_steps)
             self._refresh_flow_list()
             self._start_playback(self._current_steps, name)
         except (ValueError, OSError) as exc:
-            messagebox.showerror("保存失败", str(exc))
+            messagebox.showerror("Save Failed", str(exc))
 
     def _on_delete_selected(self) -> None:
         """删除选中的流程。"""
         name = self._get_selected_flow_name()
         if not name:
-            messagebox.showwarning("提示", "请先选择一个流程。")
+            messagebox.showwarning("Notice", "Select a saved flow first.")
             return
 
-        if not messagebox.askyesno("确认删除", f"确定删除流程「{name}」吗？"):
+        if not messagebox.askyesno("Confirm Delete", f"Delete flow '{name}'?"):
             return
 
         if self.storage.delete(name):
             self._refresh_flow_list()
-            self._set_status(f"已删除流程：{name}")
+            self._set_status(f"Deleted flow: {name}")
         else:
-            messagebox.showerror("删除失败", f"找不到流程：{name}")
+            messagebox.showerror("Delete Failed", f"Flow not found: {name}")
 
     def _set_playback_ui(self, playing: bool) -> None:
         """切换回放期间的按钮状态。"""
@@ -816,13 +816,13 @@ class ClicklessApp:
     def _start_playback(self, steps: List[dict], label: str) -> None:
         """开始回放指定步骤。"""
         if not steps:
-            messagebox.showwarning("提示", "没有可运行的步骤。")
+            messagebox.showwarning("Notice", "No steps to run.")
             return
         if self.recorder and self.recorder.is_recording:
-            messagebox.showwarning("提示", "请先停止录制。")
+            messagebox.showwarning("Notice", "Stop recording first.")
             return
         if self.player.is_playing:
-            messagebox.showwarning("提示", "已有回放正在进行。")
+            messagebox.showwarning("Notice", "Playback already in progress.")
             return
         if not self._ensure_permissions():
             return
@@ -831,20 +831,20 @@ class ClicklessApp:
         has_type = any(step.get("type") == "type" for step in steps)
         if has_type and not has_click:
             messagebox.showwarning(
-                "提示",
-                "当前流程里没有「点击」步骤。\n\n"
-                "运行前请手动点一下网页里的输入框，否则文字可能粘贴到错误位置。",
+                "Notice",
+                "This flow has no click steps.\n\n"
+                "Click the target input field manually before running, "
+                "or typed text may go to the wrong place.",
             )
 
         self._hide_for_playback()
         self._set_playback_ui(True)
         self._show_play_floater(label)
         self._set_status(
-            f"5 秒后开始运行「{label}」— 切到 Excel；"
-            f"若位置变了，请点第一个应对准的位置；没变则等待即可"
+            f"Starting '{label}' in 5 seconds — switch to the target window. "
+            f"If layout changed, click the first target to align; otherwise wait."
         )
         self.root.update_idletasks()
-        # 在主线程缓存悬浮条区域，避免回放线程访问 Tk 导致 Windows 闪退
         play_exclude_rects: List[Tuple[int, int, int, int]] = []
         floater_rect = self._control_floater.bounds()
         if floater_rect:
@@ -852,10 +852,10 @@ class ClicklessApp:
 
         def on_countdown(remaining: int) -> None:
             msg = (
-                f"{remaining} 秒 — 位置变了就点应对准处；"
-                f"没变则不用点"
+                f"{remaining}s — click to align if position changed; "
+                f"otherwise wait"
             )
-            self._set_status(f"{msg}（右下角可停止）")
+            self._set_status(f"{msg} (Stop at bottom-right)")
             self._control_floater.set_status(msg)
 
         def exclude_rects() -> List[Tuple[int, int, int, int]]:
@@ -873,34 +873,34 @@ class ClicklessApp:
         def on_before_step(index: int, step: dict) -> None:
             if step.get("type") in ("click", "double_click"):
                 hint = (
-                    " — 首次点击会稍等，请保持浏览器在最前面"
+                    " — first click waits briefly; keep target window in front"
                     if index == first_click_index
                     else ""
                 )
                 self._set_status(
-                    f"正在点击 ({int(step['x'])}, {int(step['y'])}) "
-                    f"— 步骤 {index + 1}/{len(steps)}{hint}"
+                    f"Clicking ({int(step['x'])}, {int(step['y'])}) "
+                    f"— step {index + 1}/{len(steps)}{hint}"
                 )
                 self._control_floater.set_status(
-                    f"步骤 {index + 1}/{len(steps)} 点击中"
+                    f"Step {index + 1}/{len(steps)} clicking"
                 )
 
         def on_step(index: int, step: dict) -> None:
             if step.get("type") == "click":
                 self._set_status(
-                    f"已点击 ({int(step['x'])}, {int(step['y'])}) "
-                    f"— 步骤 {index + 1}/{len(steps)}"
+                    f"Clicked ({int(step['x'])}, {int(step['y'])}) "
+                    f"— step {index + 1}/{len(steps)}"
                 )
             else:
-                self._set_status(f"「{label}」执行第 {index + 1}/{len(steps)} 步")
-            self._control_floater.set_status(f"步骤 {index + 1}/{len(steps)}")
+                self._set_status(f"'{label}' step {index + 1}/{len(steps)}")
+            self._control_floater.set_status(f"Step {index + 1}/{len(steps)}")
 
         def on_done() -> None:
             def finish() -> None:
                 self._set_playback_ui(False)
                 self._hide_control_floater()
                 self._show_after_playback()
-                self._set_status(f"「{label}」回放完成")
+                self._set_status(f"'{label}' playback finished")
 
             self.root.after(0, finish)
 
@@ -909,8 +909,8 @@ class ClicklessApp:
                 self._set_playback_ui(False)
                 self._hide_control_floater()
                 self._show_after_playback()
-                self._set_status("回放出错")
-                messagebox.showerror("回放失败", str(exc))
+                self._set_status("Playback error")
+                messagebox.showerror("Playback Failed", str(exc))
 
             self.root.after(0, show_error)
 
@@ -928,13 +928,13 @@ class ClicklessApp:
 
     def _on_run_current(self) -> None:
         """运行当前步骤（未保存也可运行）。"""
-        self._start_playback(self._current_steps, "当前步骤")
+        self._start_playback(self._current_steps, "Current Steps")
 
     def _on_run_selected(self) -> None:
         """运行选中的已保存流程。"""
         name = self._get_selected_flow_name()
         if not name:
-            messagebox.showwarning("提示", "请先选择一个流程。")
+            messagebox.showwarning("Notice", "Select a saved flow first.")
             return
 
         try:
@@ -944,7 +944,7 @@ class ClicklessApp:
             self._refresh_steps_list()
             self._start_playback(steps, name)
         except (FileNotFoundError, OSError) as exc:
-            messagebox.showerror("加载失败", str(exc))
+            messagebox.showerror("Load Failed", str(exc))
 
     def _on_stop_playback(self) -> None:
         """停止回放。"""
@@ -952,4 +952,4 @@ class ClicklessApp:
         self._set_playback_ui(False)
         self._hide_control_floater()
         self._show_after_playback()
-        self._set_status("回放已停止 — 可在下方选择已保存流程继续运行")
+        self._set_status("Playback stopped — select a saved flow below to continue")

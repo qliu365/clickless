@@ -120,14 +120,14 @@ def run_self_test() -> int:
     log_file = log_path / "self-test.log"
     log_file.write_text(report + "\n", encoding="utf-8")
 
-    title = "Clickless 自检通过" if ok else "Clickless 自检失败"
-    body = report + f"\n\n日志已保存:\n{log_file}"
+    title = "Clickless self-test passed" if ok else "Clickless self-test failed"
+    body = report + f"\n\nLog saved to:\n{log_file}"
     if not ok and sys.platform == "win32":
         body += (
-            "\n\n若鼠标没动：\n"
-            "1. 用管理员身份运行 TEST.bat\n"
-            "2. 杀毒软件里允许 Clickless\n"
-            "3. 把 self-test.log 发给技术支持"
+            "\n\nIf the mouse did not move:\n"
+            "1. Run TEST.bat as administrator\n"
+            "2. Allow Clickless in antivirus\n"
+            "3. Send self-test.log to support"
         )
 
     ci_mode = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CLICKLESS_CI") == "1"
