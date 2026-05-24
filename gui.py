@@ -5,6 +5,7 @@
 import sys
 import threading
 import time
+import queue
 import tkinter as tk
 from tkinter import messagebox, ttk
 from pathlib import Path
@@ -63,6 +64,8 @@ class ClicklessApp:
         self._click_marker = ClickMarker(self.root)
         self._control_floater = RecordingFloater(self.root, self._on_floater_stop)
         self._floater_mode: Optional[str] = None  # "record" | "play"
+        self._main_thread_queue: queue.Queue = queue.Queue()
+        self._poll_main_thread_queue()
 
         self._build_ui()
         self._refresh_flow_list()
@@ -375,28 +378,39 @@ class ClicklessApp:
         except tk.TclError:
             pass
 
+    def _poll_main_thread_queue(self) -> None:
+        """主线程轮询：执行回放线程投递的鼠标/键盘操作。"""
+        while True:
+            try:
+                job = self._main_thread_queue.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                job()
+            except Exception:
+                pass
+        self.root.after(20, self._poll_main_thread_queue)
+
     def _run_on_main_thread(self, fn: Callable[[], None], *, timeout: float = 120.0) -> None:
         """Windows 回放线程把鼠标/键盘操作切回 Tk 主线程。"""
         if threading.current_thread() is threading.main_thread():
             fn()
             return
 
-        state = {"done": False, "error": None}
+        done = threading.Event()
+        state = {"error": None}
 
-        def wrapper() -> None:
+        def job() -> None:
             try:
                 fn()
             except Exception as exc:
                 state["error"] = exc
             finally:
-                state["done"] = True
+                done.set()
 
-        self.root.after(0, wrapper)
-        deadline = time.time() + timeout
-        while not state["done"]:
-            if time.time() > deadline:
-                raise TimeoutError("回放步骤超时")
-            time.sleep(0.01)
+        self._main_thread_queue.put(job)
+        if not done.wait(timeout):
+            raise TimeoutError("回放步骤超时")
         if state["error"] is not None:
             raise state["error"]
 

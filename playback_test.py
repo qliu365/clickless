@@ -2,34 +2,32 @@
 
 from __future__ import annotations
 
+import queue
 import sys
 import threading
 import time
 import tkinter as tk
 
 
-def _run_on_main(root: tk.Tk, fn, timeout: float = 15.0) -> None:
+def _run_on_main(root: tk.Tk, q: queue.Queue, fn, timeout: float = 15.0) -> None:
     if threading.current_thread() is threading.main_thread():
         fn()
         return
 
-    state = {"done": False, "error": None}
+    done = threading.Event()
+    state = {"error": None}
 
-    def wrapper() -> None:
+    def job() -> None:
         try:
             fn()
         except Exception as exc:
             state["error"] = exc
         finally:
-            state["done"] = True
+            done.set()
 
-    root.after(0, wrapper)
-    deadline = time.time() + timeout
-    while not state["done"]:
-        root.update()
-        if time.time() > deadline:
-            raise TimeoutError("playback thread test timeout")
-        time.sleep(0.005)
+    q.put(job)
+    if not done.wait(timeout):
+        raise TimeoutError("playback thread test timeout")
     if state["error"] is not None:
         raise state["error"]
 
@@ -44,6 +42,18 @@ def main() -> int:
 
     root = tk.Tk()
     root.withdraw()
+    q: queue.Queue = queue.Queue()
+
+    def poll() -> None:
+        while True:
+            try:
+                job = q.get_nowait()
+            except queue.Empty:
+                break
+            job()
+        root.after(20, poll)
+
+    poll()
 
     sw, sh = _get_screen_size()
     target_x, target_y = sw // 2, sh // 2
@@ -66,7 +76,7 @@ def main() -> int:
             None,
             on_error,
             None,
-            lambda fn: _run_on_main(root, fn),
+            lambda fn: _run_on_main(root, q, fn),
         )
 
     thread = threading.Thread(target=run_playback, daemon=True)
