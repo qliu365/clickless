@@ -79,6 +79,12 @@ def main() -> int:
             on_error,
             None,
             lambda fn: _run_on_main(root, q, fn),
+            None,
+            False,
+            None,
+            1.0,
+            None,
+            False,
         )
 
     thread = threading.Thread(target=run_playback, daemon=True)

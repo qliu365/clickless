@@ -57,6 +57,20 @@ def validate_source() -> None:
     import player  # noqa: F401
     import recorder  # noqa: F401
     import keyboard_shortcuts  # noqa: F401
+    import load_wait  # noqa: F401
+    import text_sanitize  # noqa: F401
+
+    assert text_sanitize.sanitize_typed_text(
+        "shopify.com, press Tab then Enter to Remove Suggestion."
+    ) == "shopify.com"
+    assert text_sanitize.looks_like_url("shopify.com")
+
+    from PIL import Image
+
+    same = Image.new("L", (40, 40), 200)
+    assert load_wait._image_diff_ratio(same, same) == 0.0
+    box = load_wait.region_around_point(100, 400)
+    assert len(box) == 4 and box[2] > 0 and box[3] > 0
 
     import tkinter as tk
 

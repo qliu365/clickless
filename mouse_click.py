@@ -4,9 +4,23 @@
 
 import sys
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 _pyautogui_ready = False
+_hide_cursor_during_playback = False
+
+
+def set_hide_cursor(enabled: bool) -> None:
+    """回放时隐藏鼠标移动（macOS：指针与光标分离，点击仍生效）。"""
+    global _hide_cursor_during_playback
+    _hide_cursor_during_playback = bool(enabled)
+    if sys.platform == "darwin":
+        try:
+            from Quartz import CGAssociateMouseAndMouseCursorPosition
+
+            CGAssociateMouseAndMouseCursorPosition(not enabled)
+        except Exception:
+            pass
 
 
 def _ensure_pyautogui():
@@ -18,6 +32,18 @@ def _ensure_pyautogui():
         pyautogui.PAUSE = 0.03
         _pyautogui_ready = True
     return pyautogui
+
+
+def _cursor_position() -> Tuple[int, int]:
+    from pynput.mouse import Controller
+
+    pos = Controller().position
+    return int(round(pos[0])), int(round(pos[1]))
+
+
+def _cursor_near(x: int, y: int, tolerance: int = 20) -> bool:
+    cx, cy = _cursor_position()
+    return abs(cx - x) <= tolerance and abs(cy - y) <= tolerance
 
 
 def perform_click(
@@ -36,8 +62,24 @@ def perform_click(
     for attempt in range(attempts):
         is_settle = settle or attempt == 0
         if sys.platform == "darwin":
-            if not _perform_click_quartz(x, y, button, settle=is_settle):
+            if _hide_cursor_during_playback:
+                set_hide_cursor(False)
+            moved = False
+            try:
                 _perform_click_pynput(x, y, button, settle=is_settle)
+                moved = _cursor_near(x, y)
+            except Exception:
+                moved = False
+            if not moved:
+                try:
+                    _perform_click_pyautogui(x, y, button, settle=is_settle)
+                    moved = _cursor_near(x, y)
+                except Exception:
+                    moved = False
+            if not moved:
+                _perform_click_quartz(x, y, button, settle=is_settle)
+            if _hide_cursor_during_playback:
+                set_hide_cursor(True)
         elif sys.platform == "win32":
             if not _perform_click_windows(x, y, button, settle=is_settle):
                 _perform_click_pynput(x, y, button, settle=is_settle)
@@ -47,7 +89,7 @@ def perform_click(
             _perform_click_pynput(x, y, button, settle=is_settle)
 
         if attempt < attempts - 1:
-            time.sleep(0.25)
+            time.sleep(0.02)
 
 
 def perform_double_click(
@@ -62,7 +104,7 @@ def perform_double_click(
     y = int(round(y))
     if settle:
         _warp_cursor(x, y)
-        time.sleep(0.15)
+        time.sleep(0.02)
 
     if sys.platform == "darwin" and _perform_double_click_quartz(x, y, button, settle=settle):
         return
@@ -80,9 +122,9 @@ def perform_double_click(
     btn = btn_map.get(button, Button.left)
     mouse = Controller()
     mouse.position = (x, y)
-    time.sleep(0.2)
+    time.sleep(0.02)
     mouse.click(btn, 2)
-    time.sleep(0.2)
+    time.sleep(0.02)
 
 
 def perform_drag(
@@ -114,9 +156,9 @@ def perform_drag(
     btn = btn_map.get(button, Button.left)
     mouse = Controller()
     mouse.position = (x1, y1)
-    time.sleep(0.15)
+    time.sleep(0.02)
     mouse.press(btn)
-    time.sleep(0.08)
+    time.sleep(0.02)
 
     steps = max(int(duration / 0.02), 8)
     for i in range(1, steps + 1):
@@ -128,7 +170,7 @@ def perform_drag(
         time.sleep(duration / steps)
 
     mouse.release(btn)
-    time.sleep(0.1)
+    time.sleep(0.02)
 
 
 def _scroll_to_lines(delta: float) -> int:
@@ -158,7 +200,7 @@ def perform_scroll(
 
     if x is not None and y is not None:
         _warp_cursor(int(x), int(y))
-        time.sleep(0.12)
+        time.sleep(0.02)
 
     if sys.platform == "darwin":
         _perform_scroll_quartz(dx, dy)
@@ -213,8 +255,8 @@ def _perform_scroll_quartz(dx: float, dy: float) -> None:
                     chunk_x,
                 ),
             )
-            time.sleep(0.05)
-        time.sleep(0.06)
+            time.sleep(0.01)
+        time.sleep(0.02)
     except Exception:
         _perform_scroll_pynput(dx, dy)
 
@@ -230,7 +272,7 @@ def _perform_scroll_windows(dx: float, dy: float) -> None:
             pyautogui.scroll(clicks_y)
         if clicks_x:
             pyautogui.hscroll(clicks_x)
-        time.sleep(0.06)
+        time.sleep(0.02)
     except Exception:
         _perform_scroll_pynput(dx, dy)
 
@@ -248,9 +290,9 @@ def _perform_click_windows(
         btn_map = {"left": "left", "right": "right", "middle": "middle"}
         btn = btn_map.get(button, "left")
         pyautogui.moveTo(x, y, duration=0.15 if settle else 0.08)
-        time.sleep(0.2 if settle else 0.1)
+        time.sleep(0.02 if settle else 0.02)
         pyautogui.click(x, y, button=btn)
-        time.sleep(0.12 if settle else 0.08)
+        time.sleep(0.02 if settle else 0.02)
         return True
     except Exception:
         return False
@@ -323,11 +365,11 @@ def _perform_click_sendinput(
                 raise OSError("SendInput failed")
 
         send_mouse(MOVE_ABS)
-        time.sleep(0.35 if settle else 0.18)
+        time.sleep(0.02 if settle else 0.02)
         send_mouse(MOVE_ABS | down_flag)
-        time.sleep(0.06 if settle else 0.04)
+        time.sleep(0.02 if settle else 0.01)
         send_mouse(MOVE_ABS | up_flag)
-        time.sleep(0.12)
+        time.sleep(0.02)
         return True
     except Exception:
         return False
@@ -342,10 +384,10 @@ def _perform_click_win32(
 
         user32 = ctypes.windll.user32
         if settle:
-            time.sleep(0.05)
+            time.sleep(0.01)
         if not user32.SetCursorPos(int(x), int(y)):
             return False
-        time.sleep(0.15 if settle else 0.08)
+        time.sleep(0.02 if settle else 0.02)
 
         if button == "right":
             down, up = 0x0008, 0x0010
@@ -355,9 +397,9 @@ def _perform_click_win32(
             down, up = 0x0002, 0x0004
 
         user32.mouse_event(down, 0, 0, 0, 0)
-        time.sleep(0.05)
+        time.sleep(0.01)
         user32.mouse_event(up, 0, 0, 0, 0)
-        time.sleep(0.1)
+        time.sleep(0.02)
         return True
     except Exception:
         return False
@@ -373,12 +415,12 @@ def _perform_double_click_windows(
         btn_map = {"left": "left", "right": "right", "middle": "middle"}
         btn = btn_map.get(button, "left")
         pyautogui.moveTo(x, y, duration=0.15 if settle else 0.08)
-        time.sleep(0.2 if settle else 0.1)
+        time.sleep(0.02 if settle else 0.02)
         if btn == "left":
             pyautogui.doubleClick(x, y)
         else:
             pyautogui.click(x, y, button=btn, clicks=2, interval=0.08)
-        time.sleep(0.15)
+        time.sleep(0.02)
         return True
     except Exception:
         return False
@@ -388,7 +430,7 @@ def _perform_double_click_sendinput(x: int, y: int, *, settle: bool = False) -> 
     try:
         if not _perform_click_sendinput(x, y, "left", settle=settle):
             return False
-        time.sleep(0.08)
+        time.sleep(0.02)
         return _perform_click_sendinput(x, y, "left", settle=False)
     except Exception:
         return False
@@ -407,9 +449,9 @@ def _perform_drag_windows(
         btn_map = {"left": "left", "right": "right", "middle": "middle"}
         btn = btn_map.get(button, "left")
         pyautogui.moveTo(x1, y1, duration=0.08)
-        time.sleep(0.1)
+        time.sleep(0.02)
         pyautogui.drag(x2 - x1, y2 - y1, duration=duration, button=btn)
-        time.sleep(0.1)
+        time.sleep(0.02)
         return True
     except Exception:
         return False
@@ -420,7 +462,7 @@ def _perform_scroll_pynput(dx: float, dy: float) -> None:
 
     mouse = Controller()
     mouse.scroll(int(round(dx)), int(round(dy)))
-    time.sleep(0.08)
+    time.sleep(0.02)
 
 
 def _warp_cursor(x: int, y: int) -> None:
@@ -430,14 +472,14 @@ def _warp_cursor(x: int, y: int) -> None:
             import ctypes
 
             if ctypes.windll.user32.SetCursorPos(int(x), int(y)):
-                time.sleep(0.15)
+                time.sleep(0.02)
                 return
         except Exception:
             pass
         try:
             pyautogui = _ensure_pyautogui()
             pyautogui.moveTo(x, y, duration=0.05)
-            time.sleep(0.15)
+            time.sleep(0.02)
         except Exception:
             pass
     elif sys.platform == "darwin":
@@ -447,9 +489,12 @@ def _warp_cursor(x: int, y: int) -> None:
                 CGWarpMouseCursorPosition,
             )
 
-            CGAssociateMouseAndMouseCursorPosition(True)
+            if _hide_cursor_during_playback:
+                CGAssociateMouseAndMouseCursorPosition(False)
+            else:
+                CGAssociateMouseAndMouseCursorPosition(True)
             CGWarpMouseCursorPosition((float(x), float(y)))
-            time.sleep(0.2)
+            time.sleep(0.02)
         except Exception:
             pass
 
@@ -486,21 +531,21 @@ def _perform_click_quartz(
 
         if settle:
             _warp_cursor(x, y)
-            time.sleep(0.05)
+            time.sleep(0.01)
 
         move = CGEventCreateMouseEvent(None, kCGEventMouseMoved, point, btn)
         CGEventPost(kCGHIDEventTap, move)
-        time.sleep(0.28 if settle else 0.15)
+        time.sleep(0.02 if settle else 0.02)
 
         down = CGEventCreateMouseEvent(None, down_type, point, btn)
         CGEventSetIntegerValueField(down, kCGMouseEventClickState, 1)
         CGEventPost(kCGHIDEventTap, down)
-        time.sleep(0.08 if settle else 0.05)
+        time.sleep(0.02 if settle else 0.01)
 
         up = CGEventCreateMouseEvent(None, up_type, point, btn)
         CGEventSetIntegerValueField(up, kCGMouseEventClickState, 1)
         CGEventPost(kCGHIDEventTap, up)
-        time.sleep(0.15 if settle else 0.12)
+        time.sleep(0.02 if settle else 0.02)
         return True
     except Exception:
         return False
@@ -538,21 +583,21 @@ def _perform_double_click_quartz(
 
         if settle:
             _warp_cursor(x, y)
-            time.sleep(0.1)
+            time.sleep(0.02)
 
         move = CGEventCreateMouseEvent(None, kCGEventMouseMoved, point, btn)
         CGEventPost(kCGHIDEventTap, move)
-        time.sleep(0.15)
+        time.sleep(0.02)
 
         for click_state in (1, 2):
             down = CGEventCreateMouseEvent(None, down_type, point, btn)
             CGEventSetIntegerValueField(down, kCGMouseEventClickState, click_state)
             CGEventPost(kCGHIDEventTap, down)
-            time.sleep(0.05)
+            time.sleep(0.01)
             up = CGEventCreateMouseEvent(None, up_type, point, btn)
             CGEventSetIntegerValueField(up, kCGMouseEventClickState, click_state)
             CGEventPost(kCGHIDEventTap, up)
-            time.sleep(0.08 if click_state == 1 else 0.15)
+            time.sleep(0.02 if click_state == 1 else 0.02)
         return True
     except Exception:
         return False
@@ -596,10 +641,10 @@ def _perform_drag_quartz(
             btn = kCGMouseButtonLeft
 
         _warp_cursor(x1, y1)
-        time.sleep(0.1)
+        time.sleep(0.02)
 
         CGEventPost(kCGHIDEventTap, CGEventCreateMouseEvent(None, down_type, start, btn))
-        time.sleep(0.08)
+        time.sleep(0.02)
 
         steps = max(int(duration / 0.02), 8)
         for i in range(1, steps + 1):
@@ -612,10 +657,23 @@ def _perform_drag_quartz(
             time.sleep(duration / steps)
 
         CGEventPost(kCGHIDEventTap, CGEventCreateMouseEvent(None, up_type, end, btn))
-        time.sleep(0.1)
+        time.sleep(0.02)
         return True
     except Exception:
         return False
+
+
+def _perform_click_pyautogui(
+    x: int, y: int, button: str, *, settle: bool = False
+) -> None:
+    """pyautogui 点击 — WPS/Office 在 macOS 上通常比纯 Quartz 更可靠。"""
+    pyautogui = _ensure_pyautogui()
+    btn_map = {"left": "left", "right": "right", "middle": "middle"}
+    btn = btn_map.get(button, "left")
+    pyautogui.moveTo(x, y, duration=0.2 if settle else 0.1)
+    time.sleep(0.12 if settle else 0.06)
+    pyautogui.click(x, y, button=btn)
+    time.sleep(0.08)
 
 
 def _perform_click_pynput(
@@ -631,8 +689,8 @@ def _perform_click_pynput(
     btn = btn_map.get(button, Button.left)
     mouse = Controller()
     mouse.position = (x, y)
-    time.sleep(0.2 if settle else 0.12)
+    time.sleep(0.25 if settle else 0.12)
     mouse.press(btn)
-    time.sleep(0.08 if settle else 0.06)
+    time.sleep(0.08 if settle else 0.04)
     mouse.release(btn)
-    time.sleep(0.15 if settle else 0.1)
+    time.sleep(0.1 if settle else 0.05)

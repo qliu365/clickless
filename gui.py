@@ -19,11 +19,11 @@ from permissions import (
     permission_hint,
     request_accessibility_prompt,
 )
-from player import Player
+from player import Player, resolve_calibration_anchor
 from recorder import Recorder
 from recording_floater import ControlFloater, RecordingFloater
 from storage import FlowStorage
-from keyboard_shortcuts import clipboard_action_for_hotkey
+from window_bounds import expected_click_point
 
 
 # 界面配色
@@ -59,6 +59,9 @@ class ClicklessApp:
         self._status_var = tk.StringVar(value="Ready — click the red button to start recording")
         self._flow_name_var = tk.StringVar()
         self._record_hint_var = tk.StringVar(value="Click to record")
+        self._wait_load_var = tk.BooleanVar(value=False)
+        self._playback_speed_var = tk.StringVar(value="1x")
+        self._hide_mouse_var = tk.BooleanVar(value=False)
         self._current_steps: List[dict] = []
 
         self._click_marker = ClickMarker(self.root)
@@ -195,9 +198,34 @@ class ClicklessApp:
         )
         self._btn_stop_play.pack()
 
+        ttk.Checkbutton(
+            action_col,
+            text="Wait for page load (Safari/web only)",
+            variable=self._wait_load_var,
+        ).pack(pady=(10, 0))
+
+        speed_row = ttk.Frame(action_col)
+        speed_row.pack(pady=(8, 0))
+        ttk.Label(speed_row, text="Speed:").pack(side=tk.LEFT)
+        self._speed_combo = ttk.Combobox(
+            speed_row,
+            textvariable=self._playback_speed_var,
+            values=("0.5x", "1x", "2x", "3x", "5x"),
+            width=5,
+            state="readonly",
+        )
+        self._speed_combo.pack(side=tk.LEFT, padx=(4, 0))
+
+        ttk.Checkbutton(
+            action_col,
+            text="Hide mouse (Safari only — keep off for WPS/Excel)",
+            variable=self._hide_mouse_var,
+        ).pack(pady=(8, 0))
+
         tk.Label(
             hero_frame,
-            text="Record: text, Enter, arrows, clicks, scroll, drag; Ctrl/Cmd+C/V = copy/paste.",
+            text="Record: text, Enter, arrows, clicks, scroll, drag; Ctrl/Cmd+C/V = copy/paste.\n"
+            "WPS/Excel: turn OFF hide mouse & page-load wait. Speed changes step wait times.",
             font=("Helvetica", 10),
             fg=COLOR_MUTED,
             bg=COLOR_BG,
@@ -351,12 +379,12 @@ class ClicklessApp:
         return True
 
     def _hide_for_playback(self) -> None:
-        """回放时隐藏 Clickless，避免窗口挡住网页点击。"""
-        self._click_marker.close_all()
+        """回放时隐藏 Clickless，避免窗口挡住目标应用点击。"""
+        self._click_marker.close_flashes()
         try:
             self.root.update_idletasks()
-            if sys.platform == "win32":
-                # withdraw 后 Windows 会阻止后台线程注入鼠标；改移到屏幕外
+            if sys.platform in ("win32", "darwin"):
+                # withdraw 会导致后台/主线程鼠标注入失效（Windows + macOS WPS/Excel）
                 self._saved_playback_geometry = self.root.geometry()
                 self.root.geometry("1x1+-200+-200")
                 self.root.lower()
@@ -364,13 +392,16 @@ class ClicklessApp:
                 self._control_floater.hide()
                 self.root.withdraw()
             self.root.update_idletasks()
+            self._click_marker.reanchor_host()
         except tk.TclError:
             pass
 
     def _show_after_playback(self) -> None:
         """回放结束后恢复主窗口。"""
         try:
-            if sys.platform == "win32" and getattr(self, "_saved_playback_geometry", None):
+            if sys.platform in ("win32", "darwin") and getattr(
+                self, "_saved_playback_geometry", None
+            ):
                 self.root.geometry(self._saved_playback_geometry)
             self.root.deiconify()
             self.root.lift()
@@ -392,7 +423,7 @@ class ClicklessApp:
         self.root.after(20, self._poll_main_thread_queue)
 
     def _run_on_main_thread(self, fn: Callable[[], None], *, timeout: float = 120.0) -> None:
-        """Windows 回放线程把鼠标/键盘操作切回 Tk 主线程。"""
+        """回放线程把鼠标/键盘操作切回 Tk 主线程（Windows / macOS 桌面应用必须）。"""
         if threading.current_thread() is threading.main_thread():
             fn()
             return
@@ -454,6 +485,29 @@ class ClicklessApp:
             label=label,
         )
 
+    def _parse_playback_speed(self) -> float:
+        """解析界面上的倍速，如 '2x' -> 2.0。"""
+        raw = self._playback_speed_var.get().strip().lower().rstrip("x")
+        try:
+            return max(0.1, float(raw))
+        except ValueError:
+            return 1.0
+
+    def _get_calibration_anchor_from_selection(
+        self, steps: List[dict]
+    ) -> Tuple[Optional[Tuple[int, int]], Optional[int]]:
+        """若步骤列表选中了点击步骤，用它作为运行前对齐锚点。"""
+        selection = self._steps_list.curselection()
+        if not selection:
+            return None, None
+        index = selection[0]
+        if index >= len(steps):
+            return None, None
+        step = steps[index]
+        if step.get("type") not in ("click", "double_click"):
+            return None, None
+        return expected_click_point(step), index
+
     def _on_step_list_select(self, _event=None) -> None:
         """选中步骤时，在屏幕上预览点击落点。"""
         selection = self._steps_list.curselection()
@@ -466,7 +520,8 @@ class ClicklessApp:
         if step.get("type") == "click":
             self._show_click_marker_for_step(step, COLOR_RED_IDLE, f"#{index + 1}")
             self._set_status(
-                f"Step {index + 1} at ({step['x']}, {step['y']}) — see red circle on screen"
+                f"Step {index + 1} at ({step['x']}, {step['y']}) — "
+                f"select this step before Run to align on that click"
             )
 
     def _on_floater_stop(self) -> None:
@@ -479,9 +534,10 @@ class ClicklessApp:
     def _show_record_floater(self) -> None:
         self._floater_mode = "record"
         self._control_floater.show(
-            title="Recording",
-            status="Click Stop to finish",
+            title="REC",
+            status="0 steps",
             color=ControlFloater.COLOR_RECORD,
+            compact=True,
         )
 
     def _show_play_floater(self, label: str) -> None:
@@ -537,7 +593,7 @@ class ClicklessApp:
             # 录制中显示白色方块（停止图标）
             self._record_canvas.coords(self._record_inner, 36, 36, 60, 60)
             self._record_canvas.itemconfig(self._record_inner, fill="white")
-            self._record_hint_var.set("Click Stop (bottom-right)")
+            self._record_hint_var.set("Recording…")
         else:
             self._record_canvas.itemconfig(self._record_outer, fill=COLOR_RED_IDLE)
             # idle: white dot
@@ -563,13 +619,23 @@ class ClicklessApp:
 
     def _set_status(self, text: str) -> None:
         """更新状态文字（线程安全）。"""
-        self.root.after(0, lambda: self._status_var.set(text))
+        def apply() -> None:
+            self._status_var.set(text)
+            if self._floater_mode == "record":
+                self._control_floater.set_status(text)
+
+        self.root.after(0, apply)
 
     def _format_step(self, index: int, step: dict) -> str:
         """把步骤格式化为可读字符串。"""
         delay = step.get("delay", 0)
         step_type = step.get("type")
 
+        if step_type == "wait_load":
+            region = f"({step.get('x', '?')}, {step.get('y', '?')})"
+            if step.get("w") and step.get("h"):
+                region = f"{region} {step['w']}×{step['h']}"
+            return f"{index + 1}. Wait for load {region} wait {delay}s"
         if step_type == "click":
             return (
                 f"{index + 1}. Click ({step['x']}, {step['y']}) "
@@ -609,19 +675,10 @@ class ClicklessApp:
                 lines = abs(int(round(dx / 8))) if abs(dx) > 3 else abs(int(round(dx)))
                 lines = max(1, lines)
                 parts.append(f"{'right' if dx > 0 else 'left'} {lines}")
-            label = "Scroll " + " ".join(parts) if parts else "Scroll"
-            return f"{index + 1}. {label} wait {delay}s"
-        if step_type == "key" and step.get("key", "") in (
-            "page_up",
-            "page_down",
-            "home",
-            "end",
-            "up",
-            "down",
-            "left",
-            "right",
-        ):
-            return f"{index + 1}. Key scroll [{step.get('key', '')}] wait {delay}s"
+            label = " ".join(parts) if parts else ""
+            if label:
+                return f"{index + 1}. Scroll {label} wait {delay}s"
+            return f"{index + 1}. Scroll wait {delay}s"
         if step_type == "type":
             text = step.get("text", "")
             display = text if len(text) <= 20 else text[:20] + "..."
@@ -698,34 +755,8 @@ class ClicklessApp:
                 self._steps_list.insert(
                     tk.END, self._format_step(len(self._current_steps) - 1, step)
                 )
-                # 录制时不弹标记（会挡在网页/input 上，导致点不进去）
-                if step.get("type") == "click":
-                    self._set_status(
-                        f"Recorded click ({int(step['x'])}, {int(step['y'])}) "
-                        f"— {len(self._current_steps)} steps total"
-                    )
-                elif step.get("type") == "type":
-                    preview = step.get("text", "")[:12]
-                    self._set_status(
-                        f'Recorded text "{preview}" — {len(self._current_steps)} steps total'
-                    )
-                elif step.get("type") == "drag":
-                    self._set_status(
-                        f"Recorded drag ({step['x1']},{step['y1']})→"
-                        f"({step['x2']},{step['y2']}) — {len(self._current_steps)} steps total"
-                    )
-                elif step.get("type") == "scroll":
-                    dy, dx = step.get("dy", 0), step.get("dx", 0)
-                    self._set_status(
-                        f"Recorded scroll dx={dx} dy={dy} — {len(self._current_steps)} steps total"
-                    )
-                elif step.get("type") == "scroll_pan":
-                    self._set_status(
-                        f"Recorded middle pan ({step['x1']},{step['y1']})→"
-                        f"({step['x2']},{step['y2']}) — {len(self._current_steps)} steps total"
-                    )
-                else:
-                    self._set_status(f"Recording… {len(self._current_steps)} steps captured")
+                n = len(self._current_steps)
+                self._control_floater.set_status(f"{n} step{'s' if n != 1 else ''}")
 
             self.root.after(0, update)
 
@@ -737,9 +768,9 @@ class ClicklessApp:
 
         self._set_red_button_recording(True)
         self._set_canvas_button_enabled(self._btn_run, False)
+        self._floater_mode = "record"
         self._hide_main_for_recording()
-        self.root.after(600, self._show_record_floater)
-        self._set_status("Recording — switch to your app (click Stop at bottom-right)")
+        self._show_record_floater()
 
     def _on_stop_record(self) -> None:
         """停止录制。"""
@@ -827,40 +858,23 @@ class ClicklessApp:
         if not self._ensure_permissions():
             return
 
-        has_click = any(step.get("type") == "click" for step in steps)
+        has_click = any(
+            step.get("type") in ("click", "double_click", "drag") for step in steps
+        )
         has_type = any(step.get("type") == "type" for step in steps)
-        if has_type and not has_click:
-            messagebox.showwarning(
-                "Notice",
-                "This flow has no click steps.\n\n"
-                "Click the target input field manually before running, "
-                "or typed text may go to the wrong place.",
-            )
 
         self._hide_for_playback()
         self._set_playback_ui(True)
         self._show_play_floater(label)
-        self._set_status(
-            f"Starting '{label}' in 5s — switch to the browser tab. "
-            f"Click a page element to align if layout changed."
-        )
-        self.root.update_idletasks()
-        play_exclude_rects: List[Tuple[int, int, int, int]] = []
-        floater_rect = self._control_floater.bounds()
-        if floater_rect:
-            play_exclude_rects.append(floater_rect)
 
-        def on_countdown(remaining: int) -> None:
-            msg = (
-                f"{remaining}s — click a page element to align, "
-                f"or wait if unchanged"
+        if has_type and not has_click:
+            self._set_status(
+                "No click steps — click the input field now, then playback continues in 5s"
             )
-            self._set_status(f"{msg} (Stop at bottom-right)")
-            self._control_floater.set_status(msg)
 
-        def exclude_rects() -> List[Tuple[int, int, int, int]]:
-            return play_exclude_rects
-
+        selected_anchor, anchor_step_index = self._get_calibration_anchor_from_selection(
+            steps
+        )
         first_click_index = next(
             (
                 i
@@ -869,21 +883,103 @@ class ClicklessApp:
             ),
             None,
         )
+        display_anchor = selected_anchor or resolve_calibration_anchor(steps, None)
+        anchor_step_num = (
+            anchor_step_index + 1
+            if anchor_step_index is not None
+            else ((first_click_index + 1) if first_click_index is not None else 1)
+        )
+        if selected_anchor is not None:
+            align_hint = (
+                f"Selected step {anchor_step_num} is the align target — "
+                f"click that same spot (orange dot) during countdown."
+            )
+        else:
+            align_hint = (
+                "Tip: select the Products (or target) click step in the list before Run, "
+                "then click the orange dot during countdown."
+            )
+        if sys.platform == "darwin":
+            align_hint += (
+                " Safari: scroll page to the same position as when recorded "
+                "(toolbar hide/show shifts clicks)."
+            )
+
+        self._set_status(
+            f"Starting '{label}' in 5s — switch to target app. {align_hint}"
+        )
+        self.root.update_idletasks()
+        play_exclude_rects: List[Tuple[int, int, int, int]] = []
+        floater_rect = self._control_floater.bounds()
+        if floater_rect:
+            play_exclude_rects.append(floater_rect)
+
+        if display_anchor is not None:
+            ax, ay = display_anchor
+            self._click_marker.reanchor_host()
+            self._click_marker.show_calibration(
+                ax,
+                ay,
+                label=str(anchor_step_num),
+            )
+
+        def on_countdown(remaining: int) -> None:
+            if display_anchor is not None:
+                msg = (
+                    f"{remaining}s — click the ORANGE dot (step {anchor_step_num}) "
+                    f"to align, or wait if unchanged"
+                )
+            else:
+                msg = (
+                    f"{remaining}s — click a page element to align, "
+                    f"or wait if unchanged"
+                )
+            self._set_status(f"{msg} (Stop at bottom-right)")
+            self._control_floater.set_status(msg)
+
+        def exclude_rects() -> List[Tuple[int, int, int, int]]:
+            return play_exclude_rects
+
+        playback_speed = self._parse_playback_speed()
+        speed_label = (
+            f"{playback_speed:g}x"
+            if playback_speed != int(playback_speed)
+            else f"{int(playback_speed)}x"
+        )
 
         def on_before_step(index: int, step: dict) -> None:
+            if index == 0:
+                self.root.after(0, self._click_marker.hide_calibration)
+
+            def highlight_step() -> None:
+                self._steps_list.selection_clear(0, tk.END)
+                self._steps_list.selection_set(index)
+                self._steps_list.see(index)
+
+            self.root.after(0, highlight_step)
+
+            delay = float(step.get("delay", 0))
+            eff_delay = delay / playback_speed if playback_speed else delay
+            msg = f"[{speed_label}] Step {index + 1}/{len(steps)}"
+            if delay > 0:
+                msg += f" — wait {eff_delay:.2f}s (recorded {delay:.2f}s)"
+            else:
+                msg += f" — {step.get('type', '?')}"
+            self._set_status(msg)
+            self._control_floater.set_status(msg)
+
             if step.get("type") in ("click", "double_click"):
                 hint = (
-                    " — first click waits; keep browser tab in front"
+                    " — keep browser in front"
                     if index == first_click_index
                     else ""
                 )
-                self._set_status(
-                    f"Clicking ({int(step['x'])}, {int(step['y'])}) "
+                click_msg = (
+                    f"[{speed_label}] Click ({int(step['x'])}, {int(step['y'])}) "
                     f"— step {index + 1}/{len(steps)}{hint}"
                 )
-                self._control_floater.set_status(
-                    f"Step {index + 1}/{len(steps)} clicking"
-                )
+                self._set_status(click_msg)
+                self._control_floater.set_status(click_msg)
 
         def on_step(index: int, step: dict) -> None:
             if step.get("type") == "click":
@@ -895,17 +991,42 @@ class ClicklessApp:
                 self._set_status(f"'{label}' step {index + 1}/{len(steps)}")
             self._control_floater.set_status(f"Step {index + 1}/{len(steps)}")
 
-        def on_done() -> None:
+        def on_done(step_errors=None) -> None:
+            errors = step_errors or []
+
             def finish() -> None:
+                self._click_marker.hide_calibration()
                 self._set_playback_ui(False)
                 self._hide_control_floater()
                 self._show_after_playback()
-                self._set_status(f"'{label}' playback finished")
+                if errors:
+                    lines = "\n".join(
+                        f"Step {idx + 1}: {exc}" for idx, exc in errors[:5]
+                    )
+                    extra = f"\n…and {len(errors) - 5} more" if len(errors) > 5 else ""
+                    self._set_status(
+                        f"'{label}' finished with {len(errors)} step error(s)"
+                    )
+                    messagebox.showwarning(
+                        "Playback Completed with Errors",
+                        f"Ran all {len(steps)} steps; {len(errors)} step(s) failed:\n\n"
+                        f"{lines}{extra}",
+                    )
+                else:
+                    self._set_status(
+                        f"'{label}' playback finished — all {len(steps)} steps done"
+                    )
 
             self.root.after(0, finish)
 
+        def on_step_error(index: int, step: dict, exc: Exception) -> None:
+            self._set_status(
+                f"Step {index + 1}/{len(steps)} failed ({step.get('type')}): {exc} — continuing…"
+            )
+
         def on_error(exc: Exception) -> None:
             def show_error() -> None:
+                self._click_marker.hide_calibration()
                 self._set_playback_ui(False)
                 self._hide_control_floater()
                 self._show_after_playback()
@@ -913,6 +1034,10 @@ class ClicklessApp:
                 messagebox.showerror("Playback Failed", str(exc))
 
             self.root.after(0, show_error)
+
+        def on_wait_load(msg: str) -> None:
+            self._set_status(msg)
+            self._control_floater.set_status(msg)
 
         self.player.play(
             steps,
@@ -922,8 +1047,16 @@ class ClicklessApp:
             on_step=on_step,
             on_done=on_done,
             on_error=on_error,
+            on_step_error=on_step_error,
             exclude_rects=exclude_rects,
-            run_on_main=self._run_on_main_thread if sys.platform == "win32" else None,
+            run_on_main=self._run_on_main_thread
+            if sys.platform in ("win32", "darwin")
+            else None,
+            calibration_anchor=selected_anchor,
+            wait_load_after_click=self._wait_load_var.get(),
+            on_wait_load=on_wait_load,
+            playback_speed=playback_speed,
+            hide_cursor=self._hide_mouse_var.get(),
         )
 
     def _on_run_current(self) -> None:

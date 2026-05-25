@@ -88,10 +88,10 @@ def run_self_test() -> int:
         from mouse_click import perform_click
 
         print(f"Moving mouse to ({target_x}, {target_y}) in 2 seconds...")
-        time.sleep(2)
+        time.sleep(0.02)
         perform_click(target_x, target_y, settle=True)
 
-        time.sleep(0.3)
+        time.sleep(0.02)
         after_x, after_y = _get_cursor_pos()
         moved = abs(after_x - start_x) + abs(after_y - start_y) >= 20
         near_target = abs(after_x - target_x) <= 25 and abs(after_y - target_y) <= 25
@@ -122,6 +122,13 @@ def run_self_test() -> int:
 
     title = "Clickless self-test passed" if ok else "Clickless self-test failed"
     body = report + f"\n\nLog saved to:\n{log_file}"
+    if not ok and sys.platform == "darwin":
+        body += (
+            "\n\nIf the mouse did not move on Mac:\n"
+            "1. System Settings → Privacy → Accessibility → enable Terminal (or Python)\n"
+            "2. Also enable Input Monitoring for the same app\n"
+            "3. Restart Clickless after granting permission"
+        )
     if not ok and sys.platform == "win32":
         body += (
             "\n\nIf the mouse did not move:\n"

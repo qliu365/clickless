@@ -12,10 +12,17 @@ from pynput import keyboard, mouse
 from window_bounds import attach_drag_window_offset, attach_window_offset
 
 from keyboard_shortcuts import clipboard_action_for_hotkey
+from text_sanitize import sanitize_typed_text
 
 if sys.platform == "darwin":
-    from scroll_capture import MacScrollListener
+    from frontmost_app import is_browser_like_frontmost, is_office_like_frontmost
+    from mouse_poll import MacMousePoller
+    from scroll_capture import MacInputListener
     from text_capture import get_focused_text_value
+else:
+
+    def is_browser_like_frontmost() -> bool:  # type: ignore[misc]
+        return False
 
 
 def _patch_pynput_macos_keyboard() -> None:
@@ -66,10 +73,15 @@ class Recorder:
         self._sync_timer: Optional[threading.Timer] = None
         self._sync_lock = threading.Lock()
         self._pending_press: Optional[object] = None  # (x,y,button) | "ignored"
+        self._press_lock = threading.Lock()
+        self._last_pynput_edge: Optional[tuple] = None
         self._last_scroll_merge_time: float = 0.0
-        self._mac_scroll_listener: Optional["MacScrollListener"] = None
+        self._mac_input_listener: Optional["MacInputListener"] = None
+        self._mac_mouse_poller: Optional["MacMousePoller"] = None
 
-    _DRAG_THRESHOLD = 8  # 移动超过此像素数视为拖拽
+    _DRAG_THRESHOLD = 8
+    _CLICK_MAX_NUDGE = 28
+    _PYNPUT_EDGE_SEC = 0.12
 
     _MODIFIER_NAMES = {
         "cmd",
@@ -145,6 +157,7 @@ class Recorder:
         self._baseline_initialized = False
         self._had_keyboard_since_reset = False
         self._pending_press = None
+        self._last_pynput_edge = None
         self._last_scroll_merge_time = 0.0
         self._last_event_time = time.time()
         self._recording = True
@@ -152,13 +165,16 @@ class Recorder:
         _patch_pynput_macos_keyboard()
 
         if sys.platform == "darwin":
-            self._mac_scroll_listener = MacScrollListener(self._on_scroll)
-            self._mac_scroll_listener.start()
-            self._mouse_listener = mouse.Listener(on_click=self._on_click)
+            self._mac_input_listener = MacInputListener(on_scroll=self._on_scroll)
+            self._mac_input_listener.start()
+            self._mac_mouse_poller = MacMousePoller(self._on_polled_click)
+            self._mac_mouse_poller.start()
+            self._mouse_listener = mouse.Listener(on_click=self._on_pynput_click)
         else:
-            self._mac_scroll_listener = None
+            self._mac_input_listener = None
+            self._mac_mouse_poller = None
             self._mouse_listener = mouse.Listener(
-                on_click=self._on_click,
+                on_click=self._on_pynput_click,
                 on_scroll=self._on_scroll,
             )
         self._keyboard_listener = keyboard.Listener(
@@ -167,6 +183,39 @@ class Recorder:
         )
         self._mouse_listener.start()
         self._keyboard_listener.start()
+
+    def _on_polled_click(
+        self, x: int, y: int, button_name: str, pressed: bool
+    ) -> None:
+        btn = {
+            "left": mouse.Button.left,
+            "right": mouse.Button.right,
+            "middle": mouse.Button.middle,
+        }.get(button_name, mouse.Button.left)
+        self._on_handle_mouse_click(x, y, btn, pressed, from_poll=True)
+
+    def _on_pynput_click(
+        self, x, y, button, pressed, injected=False
+    ) -> None:
+        """pynput 要求回调恰好 5 个参数 (x, y, button, pressed, injected)。"""
+        if injected:
+            return
+        self._on_handle_mouse_click(x, y, button, pressed, from_poll=False)
+
+    def _mark_pynput_edge(self, x: int, y: int, pressed: bool) -> None:
+        self._last_pynput_edge = (time.time(), x, y, pressed)
+
+    def _polled_edge_redundant(self, x: int, y: int, pressed: bool) -> bool:
+        last = self._last_pynput_edge
+        if not last:
+            return False
+        t, lx, ly, lp = last
+        return (
+            lp == pressed
+            and abs(x - lx) <= 4
+            and abs(y - ly) <= 4
+            and (time.time() - t) < self._PYNPUT_EDGE_SEC
+        )
 
     def stop(self) -> List[dict]:
         """停止录制，刷新未提交的文本缓冲。"""
@@ -178,9 +227,13 @@ class Recorder:
 
         self._recording = False
 
-        if self._mac_scroll_listener:
-            self._mac_scroll_listener.stop()
-            self._mac_scroll_listener = None
+        if self._mac_mouse_poller:
+            self._mac_mouse_poller.stop()
+            self._mac_mouse_poller = None
+
+        if self._mac_input_listener:
+            self._mac_input_listener.stop()
+            self._mac_input_listener = None
 
         if self._mouse_listener:
             self._mouse_listener.stop()
@@ -201,6 +254,34 @@ class Recorder:
         self._pending_press = None
         self._last_event_time = None
 
+    def _field_sync_active(self) -> bool:
+        """文档/浏览器里不做 AX 读焦点；浏览器/Safari 片段误读，只用按键缓冲。"""
+        if not self._use_field_sync:
+            return False
+        if sys.platform == "darwin" and is_office_like_frontmost():
+            return False
+        if sys.platform == "darwin" and is_browser_like_frontmost():
+            return False
+        return True
+
+    def _flush_before_pointer_step(self) -> None:
+        """点击/拖拽前：WPS 只刷按键缓冲，浏览器才走 AX 文本同步。"""
+        if self._field_sync_active() and (
+            self._text_buffer or self._had_keyboard_since_reset
+        ):
+            self._flush_all_pending_text()
+        else:
+            self._flush_text_buffer()
+
+    def _record_click_step(self, x: int, y: int, btn: str) -> None:
+        step = {
+            "type": "click",
+            "button": btn,
+            "delay": self._calc_delay(),
+        }
+        attach_window_offset(step, x, y)
+        self._append_step(step)
+
     def _calc_delay(self) -> float:
         """计算距上一步的时间间隔（秒）。"""
         now = time.time()
@@ -217,9 +298,27 @@ class Recorder:
         if self._on_step:
             self._on_step(step)
 
+    _JUNK_TYPED_TEXT = frozenset(
+        {
+            "skip to content",
+            "skip to main content",
+        }
+    )
+
     def _append_type_text(self, text: str) -> None:
         """追加文字输入步骤（同一段连续输入合并为一步）。"""
         if not text:
+            return
+        text = sanitize_typed_text(text)
+        if not text:
+            return
+        if text.strip().lower() in self._JUNK_TYPED_TEXT:
+            return
+        low = text.strip().lower()
+        if "do you want to save" in low or "save the changes" in low:
+            return
+        # Safari 自动完成后缀残留的单字符，不是用户输入
+        if len(text) == 1 and not self._text_buffer:
             return
         if self._steps and self._steps[-1].get("type") == "type":
             self._steps[-1]["text"] += text
@@ -231,6 +330,15 @@ class Recorder:
         }
         self._append_step(step)
 
+    def _is_spurious_ax_text(self, text: str) -> bool:
+        """辅助功能误读（WPS 页码 0、Safari 片段等），不是用户按键输入。"""
+        if not text or self._text_buffer:
+            return False
+        # 单个数字：多为 WPS/Office 界面 AX 读到的页码，不是用户打的
+        if len(text) == 1 and text.isdigit():
+            return True
+        return False
+
     def _apply_field_diff(self, old_text: str, new_text: str) -> None:
         """根据输入框文本差异生成步骤，保持与操作顺序一致。"""
         if new_text == old_text:
@@ -238,6 +346,8 @@ class Recorder:
 
         if new_text.startswith(old_text):
             added = new_text[len(old_text) :]
+            if self._is_spurious_ax_text(added):
+                return
             self._append_type_text(added)
             return
 
@@ -260,12 +370,32 @@ class Recorder:
             }
             self._append_step(step)
         if new_text:
+            if self._is_spurious_ax_text(new_text):
+                return
             self._append_type_text(new_text)
+
+    def _trust_field_read(self, new_text: Optional[str]) -> bool:
+        """
+        Safari 地址栏等纯英文场景：辅助功能常只读到片段（如 ypy），
+        此时应信任按键缓冲（shopyfy）而不是 AX 文本。
+        """
+        if new_text is None:
+            return False
+        if not self._text_buffer:
+            return True
+        if not all(ord(c) < 128 for c in self._text_buffer):
+            return True
+        cleaned = sanitize_typed_text(new_text)
+        if not cleaned:
+            return False
+        if all(ord(c) < 128 for c in cleaned):
+            return len(cleaned) >= len(self._text_buffer)
+        return True
 
     def _flush_all_pending_text(self) -> None:
         """提交未保存的文字：优先读输入框（中文 IME），否则用按键缓冲。"""
         steps_before = len(self._steps)
-        if self._use_field_sync:
+        if self._field_sync_active():
             self._flush_pending_field_text()
         if len(self._steps) == steps_before:
             self._flush_text_buffer()
@@ -277,12 +407,19 @@ class Recorder:
         立刻把未写入步骤的输入提交（点击/功能键前调用）。
         确保「先输入再点击」的顺序不会被打乱。
         """
-        if not self._use_field_sync:
+        if not self._field_sync_active():
             return
 
         new_text = get_focused_text_value()
         if new_text is None:
             return
+
+        new_text = sanitize_typed_text(new_text)
+        if not self._trust_field_read(new_text):
+            return
+
+        if self._field_baseline is not None:
+            self._field_baseline = sanitize_typed_text(self._field_baseline)
 
         if not self._baseline_initialized:
             if not self._had_keyboard_since_reset:
@@ -311,7 +448,7 @@ class Recorder:
 
     def _schedule_field_sync(self, delay: float = 0.15) -> None:
         """IME 上屏有延迟，防抖后再读输入框文本。"""
-        if not self._use_field_sync or not self._recording:
+        if not self._field_sync_active() or not self._recording:
             return
 
         def _run() -> None:
@@ -326,12 +463,19 @@ class Recorder:
 
     def _sync_text_from_focused_field(self) -> None:
         """对比焦点输入框文本变化，记录新增/删除的文字。"""
-        if not self._use_field_sync:
+        if not self._field_sync_active():
             return
 
         new_text = get_focused_text_value()
         if new_text is None:
             return
+
+        new_text = sanitize_typed_text(new_text)
+        if not self._trust_field_read(new_text):
+            return
+
+        if self._field_baseline is not None:
+            self._field_baseline = sanitize_typed_text(self._field_baseline)
 
         if not self._baseline_initialized:
             self._field_baseline = new_text
@@ -353,37 +497,65 @@ class Recorder:
         self._baseline_initialized = False
         self._had_keyboard_since_reset = False
 
-    def _on_click(self, x: int, y: int, button: mouse.Button, pressed: bool) -> None:
+    def _on_handle_mouse_click(
+        self,
+        x: int,
+        y: int,
+        button: mouse.Button,
+        pressed: bool,
+        *,
+        from_poll: bool,
+    ) -> None:
         """鼠标按下/抬起：区分点击与拖拽。"""
         if not self._recording:
             return
 
         ix, iy = int(round(x)), int(round(y))
+        if from_poll:
+            if self._polled_edge_redundant(ix, iy, pressed):
+                return
+        else:
+            self._mark_pynput_edge(ix, iy, pressed)
 
         if pressed:
-            if self._should_record_click and not self._should_record_click(ix, iy):
-                self._pending_press = "ignored"
+            ignored = (
+                self._should_record_click is not None
+                and not self._should_record_click(ix, iy)
+            )
+            with self._press_lock:
+                self._pending_press = "ignored" if ignored else (ix, iy, button.name)
+            return
+
+        ignored = False
+        orphaned_release = False
+        with self._press_lock:
+            if self._pending_press in (None, "ignored"):
+                ignored = self._pending_press == "ignored"
+                orphaned_release = self._pending_press is None
+                self._pending_press = None
             else:
-                self._pending_press = (ix, iy, button.name)
+                x1, y1, btn = self._pending_press
+                self._pending_press = None
+
+        if ignored:
+            return
+        if orphaned_release:
             return
 
-        if self._pending_press in (None, "ignored"):
-            self._pending_press = None
-            return
-
-        x1, y1, btn = self._pending_press
-        self._pending_press = None
         x2, y2 = ix, iy
 
         self._cancel_field_sync_timer()
-        self._flush_all_pending_text()
+        self._flush_before_pointer_step()
 
         self._reset_field_tracking()
 
         dx = abs(x2 - x1)
         dy = abs(y2 - y1)
-        if dx >= self._DRAG_THRESHOLD or dy >= self._DRAG_THRESHOLD:
-            if btn == "middle":
+        dist = (dx * dx + dy * dy) ** 0.5
+        if dist >= self._DRAG_THRESHOLD:
+            if btn != "middle" and dist <= self._CLICK_MAX_NUDGE:
+                self._record_click_step(x1, y1, btn)
+            elif btn == "middle":
                 step = {
                     "type": "scroll_pan",
                     "x1": x1,
@@ -392,6 +564,8 @@ class Recorder:
                     "y2": y2,
                     "delay": self._calc_delay(),
                 }
+                attach_drag_window_offset(step, x1, y1, x2, y2)
+                self._append_step(step)
             else:
                 step = {
                     "type": "drag",
@@ -405,19 +579,10 @@ class Recorder:
                 role = self._drag_scroll_role(x1, y1, x2, y2)
                 if role:
                     step["role"] = role
-            attach_drag_window_offset(step, x1, y1, x2, y2)
-            self._append_step(step)
+                attach_drag_window_offset(step, x1, y1, x2, y2)
+                self._append_step(step)
         else:
-            step = {
-                "type": "click",
-                "button": btn,
-                "delay": self._calc_delay(),
-            }
-            attach_window_offset(step, x1, y1)
-            self._append_step(step)
-
-        if self._use_field_sync:
-            self._schedule_field_sync(delay=0.2)
+            self._record_click_step(x1, y1, btn)
 
     @staticmethod
     def _drag_scroll_role(x1: int, y1: int, x2: int, y2: int) -> Optional[str]:
@@ -444,7 +609,7 @@ class Recorder:
             return
 
         self._cancel_field_sync_timer()
-        self._flush_all_pending_text()
+        self._flush_before_pointer_step()
 
         now = time.time()
         if (
@@ -511,21 +676,21 @@ class Recorder:
                     {"type": "key", "key": "backspace", "delay": self._calc_delay()}
                 )
             self._had_keyboard_since_reset = True
-            if self._use_field_sync:
+            if self._field_sync_active():
                 self._schedule_field_sync(delay=0.12)
             return
 
         if self._is_typeable_char(key, key_name):
             self._text_buffer += key_name
             self._had_keyboard_since_reset = True
-            if self._use_field_sync:
+            if self._field_sync_active():
                 self._schedule_field_sync(delay=0.18)
             return
 
         if key_name == "space":
             self._text_buffer += " "
             self._had_keyboard_since_reset = True
-            if self._use_field_sync:
+            if self._field_sync_active():
                 self._schedule_field_sync(delay=0.18)
             return
 
@@ -535,7 +700,7 @@ class Recorder:
         self._append_step(
             {"type": "key", "key": key_name, "delay": self._calc_delay()}
         )
-        if self._use_field_sync:
+        if self._field_sync_active():
             self._schedule_field_sync(delay=0.1)
 
     @staticmethod
@@ -566,9 +731,9 @@ class Recorder:
             self._modifiers.discard(key_name)
             return
 
-        if self._recording and self._use_field_sync and not self._modifiers:
-            self._had_keyboard_since_reset = True
-            self._schedule_field_sync()
+        if self._recording and self._field_sync_active() and not self._modifiers:
+            if self._had_keyboard_since_reset or self._text_buffer:
+                self._schedule_field_sync()
 
     @staticmethod
     def _normalize_hotkey_keys(modifiers: List[str], main_key: str) -> List[str]:

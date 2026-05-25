@@ -41,7 +41,7 @@ def perform_copy() -> None:
     with _controller.pressed(mod):
         _controller.press("c")
         _controller.release("c")
-    time.sleep(0.08)
+    time.sleep(0.02)
 
 
 def perform_paste() -> None:
@@ -49,4 +49,4 @@ def perform_paste() -> None:
     with _controller.pressed(mod):
         _controller.press("v")
         _controller.release("v")
-    time.sleep(0.12)
+    time.sleep(0.03)
