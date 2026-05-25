@@ -841,8 +841,8 @@ class ClicklessApp:
         self._set_playback_ui(True)
         self._show_play_floater(label)
         self._set_status(
-            f"Starting '{label}' in 5 seconds — switch to the target window. "
-            f"If layout changed, click the first target to align; otherwise wait."
+            f"Starting '{label}' in 5s — switch to the browser tab. "
+            f"Click a page element to align if layout changed."
         )
         self.root.update_idletasks()
         play_exclude_rects: List[Tuple[int, int, int, int]] = []
@@ -852,8 +852,8 @@ class ClicklessApp:
 
         def on_countdown(remaining: int) -> None:
             msg = (
-                f"{remaining}s — click to align if position changed; "
-                f"otherwise wait"
+                f"{remaining}s — click a page element to align, "
+                f"or wait if unchanged"
             )
             self._set_status(f"{msg} (Stop at bottom-right)")
             self._control_floater.set_status(msg)
@@ -873,7 +873,7 @@ class ClicklessApp:
         def on_before_step(index: int, step: dict) -> None:
             if step.get("type") in ("click", "double_click"):
                 hint = (
-                    " — first click waits briefly; keep target window in front"
+                    " — first click waits; keep browser tab in front"
                     if index == first_click_index
                     else ""
                 )

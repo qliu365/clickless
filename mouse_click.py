@@ -238,17 +238,96 @@ def _perform_scroll_windows(dx: float, dy: float) -> None:
 def _perform_click_windows(
     x: int, y: int, button: str, *, settle: bool = False
 ) -> bool:
-    """Windows 点击：先试 ctypes，再 pyautogui。"""
+    """Windows 点击：SendInput（浏览器能收到 mousemove），再 fallback。"""
+    if _perform_click_sendinput(x, y, button, settle=settle):
+        return True
     if _perform_click_win32(x, y, button, settle=settle):
         return True
     try:
         pyautogui = _ensure_pyautogui()
         btn_map = {"left": "left", "right": "right", "middle": "middle"}
         btn = btn_map.get(button, "left")
-        pyautogui.moveTo(x, y, duration=0.12 if settle else 0.05)
-        time.sleep(0.15 if settle else 0.08)
+        pyautogui.moveTo(x, y, duration=0.15 if settle else 0.08)
+        time.sleep(0.2 if settle else 0.1)
         pyautogui.click(x, y, button=btn)
         time.sleep(0.12 if settle else 0.08)
+        return True
+    except Exception:
+        return False
+
+
+def _perform_click_sendinput(
+    x: int, y: int, button: str, *, settle: bool = False
+) -> bool:
+    """
+    Windows SendInput — 发送 mousemove + click。
+    浏览器/网页需要 mousemove 才能正确识别悬停和点击（SetCursorPos 不够）。
+    """
+    try:
+        import ctypes
+        import ctypes.wintypes as wintypes
+
+        user32 = ctypes.windll.user32
+        ULONG_PTR = ctypes.c_size_t
+
+        class MOUSEINPUT(ctypes.Structure):
+            _fields_ = [
+                ("dx", wintypes.LONG),
+                ("dy", wintypes.LONG),
+                ("mouseData", wintypes.DWORD),
+                ("dwFlags", wintypes.DWORD),
+                ("time", wintypes.DWORD),
+                ("dwExtraInfo", ULONG_PTR),
+            ]
+
+        class INPUT(ctypes.Structure):
+            class _INPUT_UNION(ctypes.Union):
+                _fields_ = [("mi", MOUSEINPUT)]
+
+            _anonymous_ = ("u",)
+            _fields_ = [
+                ("type", wintypes.DWORD),
+                ("u", _INPUT_UNION),
+            ]
+
+        INPUT_MOUSE = 0
+        MOUSEEVENTF_MOVE = 0x0001
+        MOUSEEVENTF_LEFTDOWN = 0x0002
+        MOUSEEVENTF_LEFTUP = 0x0004
+        MOUSEEVENTF_RIGHTDOWN = 0x0008
+        MOUSEEVENTF_RIGHTUP = 0x0010
+        MOUSEEVENTF_MIDDLEDOWN = 0x0020
+        MOUSEEVENTF_MIDDLEUP = 0x0040
+        MOUSEEVENTF_ABSOLUTE = 0x8000
+        MOUSEEVENTF_VIRTUALDESK = 0x4000
+        MOVE_ABS = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK
+
+        vx = user32.GetSystemMetrics(76)
+        vy = user32.GetSystemMetrics(77)
+        vw = max(user32.GetSystemMetrics(78), 1)
+        vh = max(user32.GetSystemMetrics(79), 1)
+        ax = int((int(x) - vx) * 65535 / max(vw - 1, 1))
+        ay = int((int(y) - vy) * 65535 / max(vh - 1, 1))
+
+        if button == "right":
+            down_flag, up_flag = MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP
+        elif button == "middle":
+            down_flag, up_flag = MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP
+        else:
+            down_flag, up_flag = MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP
+
+        def send_mouse(flags: int) -> None:
+            inp = INPUT(type=INPUT_MOUSE)
+            inp.mi = MOUSEINPUT(ax, ay, 0, flags, 0, ULONG_PTR(0))
+            if user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT)) != 1:
+                raise OSError("SendInput failed")
+
+        send_mouse(MOVE_ABS)
+        time.sleep(0.35 if settle else 0.18)
+        send_mouse(MOVE_ABS | down_flag)
+        time.sleep(0.06 if settle else 0.04)
+        send_mouse(MOVE_ABS | up_flag)
+        time.sleep(0.12)
         return True
     except Exception:
         return False
@@ -287,18 +366,30 @@ def _perform_click_win32(
 def _perform_double_click_windows(
     x: int, y: int, button: str, *, settle: bool = False
 ) -> bool:
+    if button == "left" and _perform_double_click_sendinput(x, y, settle=settle):
+        return True
     try:
         pyautogui = _ensure_pyautogui()
         btn_map = {"left": "left", "right": "right", "middle": "middle"}
         btn = btn_map.get(button, "left")
-        pyautogui.moveTo(x, y, duration=0.12 if settle else 0.05)
-        time.sleep(0.15 if settle else 0.1)
+        pyautogui.moveTo(x, y, duration=0.15 if settle else 0.08)
+        time.sleep(0.2 if settle else 0.1)
         if btn == "left":
             pyautogui.doubleClick(x, y)
         else:
             pyautogui.click(x, y, button=btn, clicks=2, interval=0.08)
         time.sleep(0.15)
         return True
+    except Exception:
+        return False
+
+
+def _perform_double_click_sendinput(x: int, y: int, *, settle: bool = False) -> bool:
+    try:
+        if not _perform_click_sendinput(x, y, "left", settle=settle):
+            return False
+        time.sleep(0.08)
+        return _perform_click_sendinput(x, y, "left", settle=False)
     except Exception:
         return False
 
@@ -399,7 +490,7 @@ def _perform_click_quartz(
 
         move = CGEventCreateMouseEvent(None, kCGEventMouseMoved, point, btn)
         CGEventPost(kCGHIDEventTap, move)
-        time.sleep(0.2 if settle else 0.12)
+        time.sleep(0.28 if settle else 0.15)
 
         down = CGEventCreateMouseEvent(None, down_type, point, btn)
         CGEventSetIntegerValueField(down, kCGMouseEventClickState, 1)

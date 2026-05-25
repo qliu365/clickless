@@ -216,6 +216,30 @@ def _point_in_rects(x: int, y: int, rects: List[Tuple[int, int, int, int]]) -> b
     return False
 
 
+def _win_poll_calibration_click(
+    calibration: dict,
+    exclude_rects: Optional[Callable[[], List[Tuple[int, int, int, int]]]],
+) -> None:
+    """Windows：轮询左键按下位置做运行前对齐（不用 pynput 监听）。"""
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        if user32.GetAsyncKeyState(0x01) & 0x8000:
+            class POINT(ctypes.Structure):
+                _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+            pt = POINT()
+            if user32.GetCursorPos(ctypes.byref(pt)):
+                ix, iy = int(pt.x), int(pt.y)
+                rects = exclude_rects() if exclude_rects else []
+                if not _point_in_rects(ix, iy, rects):
+                    calibration["x"] = ix
+                    calibration["y"] = iy
+    except Exception:
+        pass
+
+
 def _perform_hotkey(keys: List[str]) -> None:
     """组合键，如 Command+C / Command+V。"""
     mapped: List = []
@@ -250,8 +274,8 @@ class Player:
     """回放步骤列表，支持倒计时与中途停止。"""
 
     DEFAULT_COUNTDOWN = 5  # 给用户时间切换到浏览器
-    POST_COUNTDOWN_DELAY = 1.5  # 倒计时结束后额外等待，让浏览器稳定获得焦点
-    FIRST_CLICK_EXTRA_DELAY = 1.2  # 第一次点击前再等一会
+    POST_COUNTDOWN_DELAY = 2.5  # 倒计时结束后等浏览器获得焦点
+    FIRST_CLICK_EXTRA_DELAY = 2.0  # 首次网页点击前多等一会
 
     def __init__(self) -> None:
         self._thread: Optional[threading.Thread] = None
@@ -319,8 +343,9 @@ class Player:
             has_pointer_steps = _first_pointer_anchor(steps) is not None
             calibration: dict = {"x": None, "y": None}
 
-            # Windows 上 pynput 监听会干扰后续鼠标注入，跳过运行前对齐监听
+            # Windows 用轮询对齐；macOS 用 pynput 监听
             use_calibration_listener = has_pointer_steps and sys.platform != "win32"
+            use_calibration_poll = has_pointer_steps and sys.platform == "win32"
 
             if use_calibration_listener:
 
@@ -342,7 +367,14 @@ class Player:
                     return
                 if on_countdown:
                     on_countdown(remaining)
-                time.sleep(1)
+                if use_calibration_poll:
+                    for _ in range(10):
+                        if self._stop_event.is_set():
+                            return
+                        _win_poll_calibration_click(calibration, exclude_rects)
+                        time.sleep(0.1)
+                else:
+                    time.sleep(1)
 
             if listener is not None:
                 listener.stop()
