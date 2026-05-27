@@ -1,24 +1,75 @@
 # Clickless
 
-**Record once, replay forever.** Clickless is a desktop automation assistant for macOS and Windows. It records mouse clicks, keyboard input, scrolling, copy/paste, and shortcuts, then replays them on demand—useful for repetitive Excel/WPS → web → spreadsheet workflows and other UI tasks.
+**Record once, replay forever — built from LEGO-style blocks.**
+
+Clickless is a desktop automation assistant for macOS and Windows. You record small pieces of work once, save them as **reusable modules** (building blocks), then **snap blocks together** into full **flows**. Loops repeat a block many times (e.g. every Excel row). Same idea as LEGO: a few bricks, many assemblies.
+
+Great for repetitive Excel/WPS → web → spreadsheet work and any click-and-type routine.
+
+## LEGO-style building blocks
+
+Think of automation in three layers:
+
+```
+  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+  │   Module    │     │   Module    │     │   Module    │  ← bricks (saved once)
+  │  "Copy cell"│     │ "Paste web" │     │ "Back Excel"│
+  └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+         │                   │                   │
+         └───────────────────┼───────────────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │      Flow       │  ← full model (your job)
+                    │  open → loop ×N │
+                    └─────────────────┘
+```
+
+| Layer | What it is | On disk |
+|-------|------------|---------|
+| **Step** | One click, key, copy, paste, etc. | Inside a recording |
+| **Module** | A named bundle of steps — one brick | `modules/*.json` |
+| **Loop** | “Run this brick (or these steps) N times” | Inside a flow |
+| **Flow** | The full script you run end-to-end | `flows/*.json` |
+
+**Typical workflow**
+
+1. **Record** a small chunk (e.g. copy cell → click browser → paste).
+2. **Pause** → select those steps → **Save module** (creates a brick; your flow stays unchanged).
+3. Keep recording, or **Insert module** to drop in bricks you already have.
+4. **Module + loop** — save a brick and add “repeat × 10” in one step.
+5. **Save** the whole assembly as a **flow** and **Run** anytime.
+
+Bricks stay in a shared library (`modules/`). Update or **Rename module** once; flows that reference it can be updated automatically. **Pick steps** lets you choose non-contiguous steps; middle steps are still included in order when you build a brick or loop.
 
 ## Features
 
-- **Record & playback** — Red button to start/stop recording; green **Run** to replay the current flow or a saved flow.
-- **Floating control bar** — Pause, resume, stop, and loop helpers while recording.
-- **Saved flows** — Name and save sequences as JSON; double-click a flow in the list to run it.
-- **Modules** — Save selected steps as reusable blocks; **Insert module** to compose longer flows.
-- **Loops** — Repeat a step range or a module N times; Excel row loops with drag-select or WPS row count.
-- **Pick steps** — Non-contiguous selection (gaps are filled in order when building modules/loops).
-- **Keyboard select** — Insert Shift+arrow steps for Excel/WPS without clicking cells.
-- **Rename / update modules** — Manage module files on disk; references update in the current flow and saved flows.
-- **Playback options** — Speed (0.5×–5×), optional page-load wait (Safari), calibration countdown before clicks.
-- **English UI** — Main window and floater labels are in English.
+- **LEGO modules** — Save, insert, update, rename reusable blocks; compose long jobs from short recordings.
+- **Loops** — Repeat a module or step range N times; Excel drag-select or WPS row count for row-by-row jobs.
+- **Record & playback** — Red button to record; green **Run** for trial or saved flows.
+- **Floating control bar** — Pause, resume, stop, loop-once recording helpers.
+- **Saved flows** — Name and save full assemblies; double-click to run.
+- **Pick steps** — Checkbox + keyboard selection for building bricks from scattered steps.
+- **Keyboard select** — Shift+arrow steps for Excel/WPS without clicking cells.
+- **Playback options** — Speed (0.5×–5×), optional page-load wait (Safari), click calibration countdown.
+- **English UI** — Main window and floater in English.
+
+## Module actions (cheat sheet)
+
+| Button | LEGO analogy | Effect |
+|--------|----------------|--------|
+| **Save module** | Mold a new brick | Writes `modules/`; does **not** remove steps from the current flow. |
+| **Insert module** | Snap a brick in | One step that runs a saved module. |
+| **Module + loop** | Brick + “× N” | Saves module and inserts loop; optionally removes original steps. |
+| **Update module** | Reshape a brick | Overwrites module file with newly selected steps. |
+| **Rename module** | Relabel a brick | Renames file; updates references in current + saved flows. |
+| **Loop** | Repeat a section | Inline steps or a module, N times. |
+
+**Excel → web rows:** record one row’s brick once (copy → web → paste → back), use floater **loop** + **Done**; Clickless presses ↓ between iterations.
 
 ## Requirements
 
 - **Python 3.10+** (for running from source)
-- Dependencies: see [`requirements.txt`](requirements.txt)
+- Dependencies: [`requirements.txt`](requirements.txt)
 
 ```bash
 pip install -r requirements.txt
@@ -26,11 +77,11 @@ pip install -r requirements.txt
 
 ### macOS permissions
 
-Recording and playback need **Accessibility** and often **Input Monitoring** for Terminal, Python, or the Clickless app:
+Recording and playback need **Accessibility** and often **Input Monitoring** for Terminal, Python, or Clickless:
 
 **System Settings → Privacy & Security → Accessibility** (and **Input Monitoring**) → enable your launcher.
 
-Restart the app after granting permissions. Run a quick check:
+Restart after granting. Quick check:
 
 ```bash
 python main.py --self-test
@@ -45,10 +96,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-1. Click the **red** button and perform your actions in the target app.
-2. Click **red** again to stop.
-3. Enter a **Name** and click **Save**, or click **Run** to try without saving.
-4. Use **Pick steps** / **Save module** / **Insert module** / **Loop** to structure longer automations.
+1. **Record** a short sequence → **Save module** (first brick).
+2. Record more, or **Insert module** to add bricks.
+3. **Save** the full **flow** → **Run** or double-click the flow in the list.
 
 ## Where data is stored
 
@@ -58,47 +108,22 @@ python main.py
 | Windows | `%LOCALAPPDATA%\Clickless\` |
 | Linux | `~/.clickless/` |
 
-Under that folder:
+- `modules/` — your brick library  
+- `flows/` — full assemblies  
+- `clickless-error.log` — startup errors  
+- `self-test.log` — `--self-test` output  
 
-- `flows/` — saved automation flows (JSON)
-- `modules/` — reusable step modules (JSON)
-- `clickless-error.log` — crash log if startup fails
-- `self-test.log` — output from `--self-test`
-
-Legacy `flows/` next to the project directory are migrated into the app data folder on first run.
-
-## Modules & loops (short guide)
-
-| Action | What it does |
-|--------|----------------|
-| **Save module** | Writes selected steps to `modules/`; does not remove them from the current flow. |
-| **Module + loop** | Saves a module and inserts a loop that references it; optionally removes the original steps. |
-| **Insert module** | Adds one step that calls a saved module. |
-| **Update module** | Overwrites an existing module with newly selected steps. |
-| **Rename module** | Renames the module file and updates references in open and saved flows. |
-| **Loop** | Repeats selected steps or a module; use **Remove original steps** to avoid running twice. |
-
-**Excel → web row loop:** use the floater **loop** control, record copy → web paste → return to sheet once, then **Done**; the app advances with ↓ between iterations.
+Legacy `flows/` beside the project folder migrate into the app data folder on first run.
 
 ## Building installable apps
 
-**macOS**
+**macOS:** `./build_mac.sh` → `dist/Clickless.app`, `dist/Clickless-mac.zip`  
 
-```bash
-./build_mac.sh
-# Output: dist/Clickless.app, dist/Clickless-mac.zip
-```
+**Windows:** `build_win.bat` or `pyinstaller --noconfirm --clean clickless.spec`  
 
-**Windows**
+See [`README-Windows.txt`](README-Windows.txt) for zip install notes (keep `Clickless.exe` and `_internal` together).
 
-```bash
-build_win.bat
-# Or: pyinstaller --noconfirm --clean clickless.spec
-```
-
-See [`README-Windows.txt`](README-Windows.txt) for end-user zip instructions (keep `Clickless.exe` and `_internal` together).
-
-CI builds are available via GitHub Actions (`.github/workflows/build.yml`, manual **workflow_dispatch**).
+CI: `.github/workflows/build.yml` (manual **workflow_dispatch**).
 
 ## Project layout
 
@@ -107,21 +132,21 @@ CI builds are available via GitHub Actions (`.github/workflows/build.yml`, manua
 | `main.py` | Entry point |
 | `gui.py` | Tkinter UI |
 | `recorder.py` | Input capture |
-| `player.py` | Playback engine |
-| `module_storage.py` / `storage.py` | Modules and flows on disk |
+| `player.py` | Playback (expands modules & loops) |
+| `module_storage.py` | Brick library on disk |
+| `storage.py` | Saved flows |
 | `recording_floater.py` | Recording/playback floater |
-| `permissions.py` | macOS permission helpers |
 
 ## Troubleshooting
 
-- **Nothing happens on run** — Check Accessibility; confirm the flow has steps and any referenced **modules** exist under `modules/`.
-- **Wrong click position** — Use the orange calibration dot during the countdown; keep browser zoom at 100% and the same window layout as when recording.
-- **Clipboard / paste issues** — Avoid multiple copies before multiple pastes in one loop; split into ordered modules instead.
-- **Startup error** — See `clickless-error.log` in the app data folder.
+- **Nothing on run** — Accessibility on? Do all **modules** in the flow still exist under `modules/`?
+- **Wrong clicks** — Calibrate with the orange dot; same zoom/layout as when you recorded the brick.
+- **Paste wrong / only last cell** — Don’t stack many copies then many pastes in one loop; use separate bricks in order: copy → paste → next row.
+- **Startup error** — `clickless-error.log` in the app data folder.
 
 ## License
 
-No license file is included yet. Use and distribute according to your team’s policy.
+No license file yet. Use per your team’s policy.
 
 ## Repository
 
