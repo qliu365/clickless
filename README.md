@@ -2,7 +2,7 @@
 
 **Record once, replay forever — built from LEGO-style blocks.**
 
-Clickless is a desktop automation assistant for macOS and Windows. You record small pieces of work once, save them as **reusable modules** (building blocks), then **snap blocks together** into full **flows**. Loops repeat a block many times (e.g. every Excel row). Same idea as LEGO: a few bricks, many assemblies.
+Clickless is a desktop automation assistant for **macOS**. You record small pieces of work once, save them as **reusable modules** (building blocks), then **snap blocks together** into full **flows**. Loops repeat a block many times (e.g. every Excel row). Same idea as LEGO: a few bricks, many assemblies.
 
 Great for repetitive Excel/WPS → web → spreadsheet work and any click-and-type routine.
 
@@ -100,13 +100,9 @@ python main.py
 2. Record more, or **Insert module** to add bricks.
 3. **Save** the full **flow** → **Run** or double-click the flow in the list.
 
-## Where data is stored
+## Where data is stored (macOS)
 
-| Platform | Location |
-|----------|----------|
-| macOS | `~/Library/Application Support/Clickless/` |
-| Windows | `%LOCALAPPDATA%\Clickless\` |
-| Linux | `~/.clickless/` |
+`~/Library/Application Support/Clickless/`
 
 - `modules/` — your brick library  
 - `flows/` — full assemblies  
@@ -115,15 +111,13 @@ python main.py
 
 Legacy `flows/` beside the project folder migrate into the app data folder on first run.
 
-## Building installable apps
+## Building a macOS app
 
-**macOS:** `./build_mac.sh` → `dist/Clickless.app`, `dist/Clickless-mac.zip`  
+```bash
+./build_mac.sh
+```
 
-**Windows:** `build_win.bat` or `pyinstaller --noconfirm --clean clickless.spec`  
-
-See [`README-Windows.txt`](README-Windows.txt) for zip install notes (keep `Clickless.exe` and `_internal` together).
-
-CI: `.github/workflows/build.yml` (manual **workflow_dispatch**).
+Output: `dist/Clickless.app`, `dist/Clickless-mac.zip`
 
 ## Project layout
 
