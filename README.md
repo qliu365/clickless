@@ -6,6 +6,12 @@ Clickless is a desktop automation assistant for **macOS**. You record small piec
 
 Great for repetitive Excel/WPS → web → spreadsheet work and any click-and-type routine.
 
+## Intro video
+
+[![Clickless intro — watch on YouTube](https://img.youtube.com/vi/JS7WG7rKF-s/hqdefault.jpg)](https://youtu.be/JS7WG7rKF-s)
+
+**[Watch on YouTube →](https://youtu.be/JS7WG7rKF-s)**
+
 ## LEGO-style building blocks
 
 Think of automation in three layers:
