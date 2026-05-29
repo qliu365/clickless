@@ -47,7 +47,7 @@ python3 -m http.server 8080
 
 ## SEO 上线检查清单
 
-- [ ] 将 `hello@officelego.app` 换成真实联系邮箱
+- [x] 联系邮箱：iamliuqichen@icloud.com
 - [ ] 将下载链接 `#download` 中的 `github.com` 换成 Releases 真实地址
 - [ ] 更新 `canonical`、`sitemap.xml`、`robots.txt` 里的域名为正式域名
 - [ ] 在 Google [Search Console](https://search.google.com/search-console) 提交 sitemap
