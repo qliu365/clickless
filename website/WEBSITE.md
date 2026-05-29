@@ -14,6 +14,9 @@ python3 -m http.server 8080
 
 浏览器打开 http://127.0.0.1:8080
 
+- 中文版：`index.html`（默认）
+- 英文版：`index-en.html`（导航栏可切换 English / 中文）
+
 ---
 
 ## 发布到公网（任选一种）
