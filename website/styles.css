@@ -88,6 +88,12 @@ a:hover { text-decoration: underline; }
   color: var(--text) !important;
 }
 
+.nav-contact {
+  font-size: 0.8rem !important;
+  color: var(--primary) !important;
+  word-break: break-all;
+}
+
 .menu-btn {
   display: none;
   background: none;
