@@ -44,7 +44,10 @@
       <a href="#how">How it works</a>
       <a href="#users">Use cases</a>
       <a href="#faq">FAQ</a>
-      <a href="index.html" class="lang-switch">中文</a>
+      <div class="lang-picker" role="group" aria-label="Language">
+        <a href="index.html" data-lang="zh">中文</a>
+        <a href="index-en.html" data-lang="en">EN</a>
+      </div>
       <a href="mailto:iamliuqichen@icloud.com" class="nav-contact">Contact</a>
       <a href="#download" class="nav-cta">Get the app</a>
     </nav>
@@ -234,12 +237,14 @@
         <a href="#features">Features</a>
         <a href="#download">Download</a>
         <a href="#faq">FAQ</a>
-        <a href="index.html">中文</a>
+        <a href="index.html?lang=zh">中文</a>
+        <a href="index-en.html?lang=en">English</a>
         <a href="mailto:iamliuqichen@icloud.com">Contact</a>
       </p>
     </div>
   </footer>
 
+  <script src="lang.js"></script>
   <script>
     document.getElementById("year").textContent = new Date().getFullYear();
     document.getElementById("menu-btn")?.addEventListener("click", () => {
