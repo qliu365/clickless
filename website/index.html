@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OfficeLEGO — 录一次，办公流程自动重复 | 桌面办公自动化</title>
+  <meta name="description" content="OfficeLEGO 是面向 Excel、WPS、邮件与浏览器的桌面自动化工具：录制鼠标键盘一次，模块化积木复用，批量循环表格行。支持 macOS 与 Windows。" />
+  <meta name="keywords" content="OfficeLEGO,办公自动化,RPA,Excel自动化,WPS自动化,流程录制,桌面自动化,重复操作" />
+  <meta name="author" content="OfficeLEGO" />
+  <link rel="canonical" href="https://qliu365.github.io/clickless/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="OfficeLEGO — 办公流程像乐高一样拼装" />
+  <meta property="og:description" content="录制一次，永久回放。表格循环、模块复用、跨应用 Copy-Paste，专为真实 Office 场景设计。" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="OfficeLEGO" />
+  <meta name="twitter:description" content="桌面办公自动化 — 录一次，重复 forever。" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='10' width='12' height='12' rx='2' fill='%235b8def'/%3E%3Crect x='18' y='4' width='12' height='12' rx='2' fill='%234ecf8a'/%3E%3Crect x='18' y='18' width='12' height='12' rx='2' fill='%23e8a838'/%3E%3C/svg%3E" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "OfficeLEGO",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "macOS, Windows",
+    "description": "Desktop automation for Excel, WPS, email and browser workflows. Record once, replay with modular steps and table loops.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="/">
+      <span class="logo-blocks" aria-hidden="true"></span>
+      <span>Office<strong>LEGO</strong></span>
+    </a>
+    <nav class="nav">
+      <a href="#features">功能</a>
+      <a href="#how">原理</a>
+      <a href="#users">适用场景</a>
+      <a href="#faq">FAQ</a>
+      <a href="#download" class="nav-cta">获取产品</a>
+    </nav>
+    <button type="button" class="menu-btn" id="menu-btn" aria-label="菜单">☰</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">桌面办公自动化 · 非云端假点击</p>
+        <h1>把重复办公流程<br />拼成<strong>乐高积木</strong></h1>
+        <p class="lead">
+          在真实 Excel、WPS、浏览器里<strong>录一次</strong>鼠标与键盘，
+          之后一键回放。支持表格行循环、模块复用、跨应用复制粘贴——
+          为财务、运营、行政的脏活累活而生。
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#download">免费试用（Mac / Win）</a>
+          <a class="btn btn-secondary" href="#how">了解工作原理</a>
+        </div>
+        <ul class="hero-stats">
+          <li><strong>录一次</strong><span>永久回放</span></li>
+          <li><strong>模块化</strong><span>流程可拼装</span></li>
+          <li><strong>真桌面</strong><span>非网页脚本</span></li>
+        </ul>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="mock-window">
+          <div class="mock-title">OfficeLEGO — 流程编辑</div>
+          <ol class="mock-steps">
+            <li>Click 复制区域</li>
+            <li>🔁 循环 50 行</li>
+            <li>Module: 粘贴到网页</li>
+            <li>Key ↓ 下一行</li>
+          </ol>
+          <div class="mock-run">▶ Run</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust">
+      <p>运行在您本机，数据不出桌面 · 适合对合规敏感的团队内部部署</p>
+    </section>
+
+    <section id="features" class="section">
+      <h2>核心能力</h2>
+      <p class="section-lead">不是泛泛的 RPA 演示，而是围绕 Office 真实操作路径打磨。</p>
+      <div class="cards">
+        <article class="card">
+          <h3>🎬 一次录制</h3>
+          <p>记录点击、输入、快捷键、滚轮与拖选。自动合并连续按键，减少冗余步骤。</p>
+        </article>
+        <article class="card">
+          <h3>🧱 模块积木</h3>
+          <p>把「复制→打开网页→粘贴」存成模块，插入到任意流程间隙，避免重复录制。</p>
+        </article>
+        <article class="card">
+          <h3>🔁 表格循环</h3>
+          <p>Excel 拖选行数或 WPS 输入行数，录一遍循环体，自动重复 N 行并下移。</p>
+        </article>
+        <article class="card">
+          <h3>🌐 浏览器协同</h3>
+          <p>针对 Gmail、内部系统的粘贴与等待加载优化，减少焦点跑偏。</p>
+        </article>
+        <article class="card">
+          <h3>🖥️ Web 控制台</h3>
+          <p>可选本地网页 UI 管理流程；配合隧道可远程触发（执行仍在办公电脑上）。</p>
+        </article>
+        <article class="card">
+          <h3>🔒 本机执行</h3>
+          <p>无需把账号密码交给云端机器人。流程 JSON 存在本机，适合内网环境。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="how" class="section section-alt">
+      <h2>三步上手</h2>
+      <ol class="steps">
+        <li>
+          <span class="step-num">1</span>
+          <div>
+            <h3>安装并授权</h3>
+            <p>Mac / Windows 安装后，在系统设置中开启「辅助功能」与「输入监控」。</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div>
+            <h3>录制流程</h3>
+            <p>切到 Excel 或 WPS，点录制，做一遍日常操作；需要批量时插入循环标记。</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div>
+            <h3>保存与回放</h3>
+            <p>命名保存，之后一键 Run。可加速回放、插入文字步骤、自动纠错。</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="users" class="section">
+      <h2>谁在用？</h2>
+      <div class="personas">
+        <div class="persona">
+          <h3>财务 / 运营</h3>
+          <p>周报数据从表格复制到多个系统，几十上百行机械粘贴。</p>
+        </div>
+        <div class="persona">
+          <h3>行政 / 人事</h3>
+          <p>固定格式的填报、截图、上传，每周重复相同点击路径。</p>
+        </div>
+        <div class="persona">
+          <h3>团队负责人</h3>
+          <p>把同事录好的模块标准化，降低培训成本与操作差错。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="compare" class="section section-alt">
+      <h2>与通用 RPA 的差异</h2>
+      <table class="compare-table">
+        <thead>
+          <tr><th></th><th>OfficeLEGO</th><th>重型 RPA 平台</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>部署</td><td>单机安装，分钟级</td><td>项目制、服务器</td></tr>
+          <tr><td>学习成本</td><td>录屏即用</td><td>流程设计器培训</td></tr>
+          <tr><td>Office 细节</td><td>WPS 行循环、Safari 等针对性优化</td><td>通用方案常需定制</td></tr>
+          <tr><td>价格形态</td><td>工具型 / 可私有化</td><td>按 bot 许可</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="download" class="section cta-section">
+      <h2>获取 OfficeLEGO</h2>
+      <p class="section-lead">产品在本机运行。官网用于介绍与分发；自动化执行不依赖云端服务器。</p>
+      <div class="download-grid">
+        <a class="download-card" href="https://github.com/qliu365/clickless/releases" rel="noopener" target="_blank">
+          <span class="os">macOS</span>
+          <span class="label">Releases 下载 / 源码</span>
+          <span class="hint">github.com/qliu365/clickless</span>
+        </a>
+        <a class="download-card" href="https://github.com/qliu365/clickless/releases" rel="noopener" target="_blank">
+          <span class="os">Windows</span>
+          <span class="label">Releases 里的 .zip</span>
+          <span class="hint">解压后运行 OfficeLEGO.exe</span>
+        </a>
+        <div class="download-card dev">
+          <span class="os">开发者</span>
+          <span class="label">python main.py</span>
+          <span class="hint">网页 UI: python main.py --web</span>
+        </div>
+      </div>
+      <p class="contact">
+        商务 / 投资合作：
+        <a href="mailto:hello@officelego.app">hello@officelego.app</a>
+        （请替换为您的真实邮箱）
+      </p>
+    </section>
+
+    <section id="faq" class="section section-alt">
+      <h2>常见问题</h2>
+      <details>
+        <summary>这是 SaaS 吗？数据会上传吗？</summary>
+        <p>不是。流程与录屏截图默认保存在本机用户目录。可选 Web 控制台仅用于管理，不要求公有云。</p>
+      </details>
+      <details>
+        <summary>能控制我电脑上的 WPS / 微信吗？</summary>
+        <p>能控制已安装桌面应用中的标准 UI 操作（点击、键盘）。部分安全软件或远程桌面可能限制模拟输入。</p>
+      </details>
+      <details>
+        <summary>Mac 和 Windows 功能一样吗？</summary>
+        <p>核心录制回放一致。Excel 拖选循环在 macOS 上最完整；Windows 部分场景建议用行数输入。</p>
+      </details>
+      <details>
+        <summary>投资人为什么要关注？</summary>
+        <p>面向 SMB 与团队内「长尾自动化」：比大型 RPA 更轻、比纯脚本更低门槛，模块化带来网络效应与复购空间。</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>© <span id="year"></span> OfficeLEGO. 办公流程自动化工具。</p>
+      <p class="footer-links">
+        <a href="#features">功能</a>
+        <a href="#download">下载</a>
+        <a href="#faq">FAQ</a>
+        <a href="mailto:hello@officelego.app">联系</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+    document.getElementById("menu-btn")?.addEventListener("click", () => {
+      document.querySelector(".nav")?.classList.toggle("open");
+    });
+  </script>
+</body>
+</html>

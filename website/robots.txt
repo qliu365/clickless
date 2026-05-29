@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://qliu365.github.io/clickless/sitemap.xml
