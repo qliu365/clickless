@@ -1,17 +1,17 @@
-Clickless 自动化助手 — Windows 使用说明
+OfficeLego 自动化助手 — Windows 使用说明
 ========================================
 
 【怎么打开？】三种方式，任选一种
 ----------------------------------------
-方式 1（最简单）：双击 Clickless.exe
-方式 2：双击 启动 Clickless.vbs（没有黑窗口）
+方式 1（最简单）：双击 OfficeLego.exe
+方式 2：双击 启动 OfficeLego.vbs（没有黑窗口）
 方式 3：双击 START.bat（会弹出黑窗口，出现 OK 后看任务栏）
 
 【鼠标不动？先跑自检】
 ----------------------------------------
 双击 TEST.bat，等 3 秒，看鼠标是否移到屏幕中间。
 - 自检通过 → 程序正常，流程要在 Windows 上自己录
-- 自检失败 → 把 AppData\Local\Clickless\self-test.log 发给技术支持
+- 自检失败 → 把 AppData\Local\OfficeLego\self-test.log 发给技术支持
 
 
 【START.bat 黑窗口里只有 OK？】
@@ -19,23 +19,23 @@ Clickless 自动化助手 — Windows 使用说明
 这是正常的！黑窗口只是「启动器」。
 
 看到下面两行就说明启动成功了：
-  [OK] Clickless is running.
-  [成功] Clickless 已启动
+  [OK] OfficeLego is running.
+  [成功] OfficeLego 已启动
 
 然后请看 **任务栏** 或 **桌面**，找标题叫
-「Clickless 自动化助手」的窗口（中间有个红色圆形按钮）。
+「OfficeLego 自动化助手」的窗口（中间有个红色圆形按钮）。
 
 黑窗口可以关掉，不影响程序使用。
 
 
 【如果黑窗口显示 FAILED / 失败】
 ----------------------------------------
-1. 直接双击 Clickless.exe 试试
+1. 直接双击 OfficeLego.exe 试试
 2. Windows 拦截：点「更多信息」→「仍要运行」
 3. 杀毒软件：选「允许」
 4. 确认 _internal 文件夹和 exe 在同一目录
 5. 把错误日志发给技术支持：
-   C:\Users\你的用户名\AppData\Local\Clickless\clickless-error.log
+   C:\Users\你的用户名\AppData\Local\OfficeLego\officelego-error.log
 
 
 【怎么用】

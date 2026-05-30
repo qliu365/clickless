@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OfficeLego — Sign in</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      max-width: 400px;
+      width: 100%;
+    }
+    .login-card h1 { margin: 0 0 0.5rem; font-size: 1.2rem; }
+    .login-card p { color: var(--muted); font-size: 0.85rem; line-height: 1.45; }
+    .login-card input {
+      width: 100%;
+      margin: 0.75rem 0;
+      padding: 0.55rem 0.65rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+    }
+    .login-card .btn { width: 100%; margin-top: 0.5rem; }
+    .err { color: var(--danger); font-size: 0.82rem; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-card">
+      <h1>OfficeLego</h1>
+      <p>Enter the access token for this server. Ask whoever runs <code>python main.py --web --public</code> on the Mac.</p>
+      <label for="token">Access token</label>
+      <input type="password" id="token" autocomplete="current-password" placeholder="Paste token" />
+      <p id="err" class="err"></p>
+      <button type="button" class="btn accent" id="btn-login">Continue</button>
+    </div>
+  </div>
+  <script>
+    const KEY = "officelego_token";
+    if (localStorage.getItem(KEY)) location.href = "/";
+    document.getElementById("btn-login").onclick = async () => {
+      const token = document.getElementById("token").value.trim();
+      if (!token) return;
+      const res = await fetch("/api/status", {
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (!res.ok) {
+        document.getElementById("err").textContent = "Invalid token";
+        return;
+      }
+      localStorage.setItem(KEY, token);
+      location.href = "/";
+    };
+  </script>
+</body>
+</html>

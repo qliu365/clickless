@@ -68,16 +68,16 @@ def open_input_monitoring_settings() -> None:
 def permission_hint() -> str:
     if sys.platform == "darwin":
         return (
-            "Clickless needs system permissions to record and simulate mouse/keyboard:\n\n"
+            "OfficeLego needs system permissions to record and simulate mouse/keyboard:\n\n"
             "1. System Settings → Privacy & Security → Accessibility\n"
-            "   Enable Terminal (or Python / Clickless)\n\n"
+            "   Enable Terminal (or Python / OfficeLego)\n\n"
             "2. System Settings → Privacy & Security → Input Monitoring\n"
-            "   Enable Terminal / Python / Clickless as well\n\n"
+            "   Enable Terminal / Python / OfficeLego as well\n\n"
             "Quit and reopen this app after enabling."
         )
     if sys.platform == "win32":
         return (
-            "Clickless on Windows usually does not need separate permission prompts.\n\n"
+            "OfficeLego on Windows usually does not need separate permission prompts.\n\n"
             "If antivirus blocks the app, choose Allow.\n"
             "Before playback, switch to the target window.\n\n"
             "Note: Chinese text input may not record fully on Windows; "

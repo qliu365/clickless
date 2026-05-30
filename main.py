@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Clickless 自动化助手 - 主程序入口
+OfficeLego 自动化助手 - 主程序入口
 
 录制一次、永久自动的桌面重复操作助手。
 """
@@ -33,15 +33,44 @@ def _configure_windows() -> None:
         pass
 
 
+def _legacy_app_roots() -> list[Path]:
+    """旧版数据目录（升级时迁移到 OfficeLego）。"""
+    if sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+        return [base / "Clickless", base / "OfficeLEGO"]
+    if sys.platform == "win32":
+        base = Path.home() / "AppData" / "Local"
+        return [base / "Clickless", base / "OfficeLEGO"]
+    return [Path.home() / ".clickless", Path.home() / ".officelego"]
+
+
+def _migrate_legacy_app_data(root: Path) -> None:
+    """首次使用 OfficeLego 时，从 Clickless 目录复制 flows/modules/captures。"""
+    if any((root / name).exists() for name in ("flows", "modules", "captures")):
+        return
+    for legacy in _legacy_app_roots():
+        if not legacy.is_dir() or legacy.resolve() == root.resolve():
+            continue
+        import shutil
+
+        root.mkdir(parents=True, exist_ok=True)
+        for name in ("flows", "modules", "captures"):
+            src = legacy / name
+            if src.is_dir():
+                shutil.copytree(src, root / name, dirs_exist_ok=True)
+        return
+
+
 def _get_app_root() -> Path:
     """用户数据目录：源码和打包版共用，避免流程文件分散。"""
     if sys.platform == "darwin":
-        root = Path.home() / "Library" / "Application Support" / "Clickless"
+        root = Path.home() / "Library" / "Application Support" / "OfficeLego"
     elif sys.platform == "win32":
-        root = Path.home() / "AppData" / "Local" / "Clickless"
+        root = Path.home() / "AppData" / "Local" / "OfficeLego"
     else:
-        root = Path.home() / ".clickless"
+        root = Path.home() / ".officelego"
     root.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_app_data(root)
     return root
 
 
@@ -72,35 +101,79 @@ if not getattr(sys, "frozen", False):
 
 # 流程文件存放目录（运行时自动创建）
 FLOWS_DIR = ROOT_DIR / "flows"
+MODULES_DIR = ROOT_DIR / "modules"
 
 
 def ensure_flows_dir() -> None:
     """确保 flows 目录存在。"""
     FLOWS_DIR.mkdir(parents=True, exist_ok=True)
+    MODULES_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def main() -> None:
-    """启动 Clickless 图形界面。"""
+    """启动 OfficeLego 图形界面。"""
     if "--self-test" in sys.argv:
         from self_test import run_self_test
 
         raise SystemExit(run_self_test())
+
+    if "--web" in sys.argv:
+        _configure_windows()
+        ensure_flows_dir()
+        _migrate_legacy_flows(FLOWS_DIR)
+        from web_app import run_web_app
+
+        from web_config import load_web_settings
+
+        argv = sys.argv[1:]
+        port = None
+        host = None
+        token = None
+        public = "--public" in argv
+        if "--port" in argv:
+            i = argv.index("--port")
+            if i + 1 < len(argv):
+                port = int(argv[i + 1])
+        if "--host" in argv:
+            i = argv.index("--host")
+            if i + 1 < len(argv):
+                host = argv[i + 1]
+        if "--token" in argv:
+            i = argv.index("--token")
+            if i + 1 < len(argv):
+                token = argv[i + 1]
+        open_browser = "--no-browser" not in argv
+        use_waitress = "--waitress" in argv
+        settings = load_web_settings(
+            host=host,
+            port=port,
+            auth_token=token,
+            public_mode=public,
+        )
+        run_web_app(
+            FLOWS_DIR,
+            MODULES_DIR,
+            settings=settings,
+            open_browser=open_browser,
+            use_waitress=use_waitress,
+        )
+        return
 
     try:
         _configure_windows()
         ensure_flows_dir()
         _migrate_legacy_flows(FLOWS_DIR)
 
-        from gui import ClicklessApp
+        from gui import OfficeLegoApp
 
-        app = ClicklessApp(flows_dir=FLOWS_DIR)
+        app = OfficeLegoApp(flows_dir=FLOWS_DIR, modules_dir=MODULES_DIR)
         app.run()
     except Exception:
         import traceback
 
         log_dir = _get_app_root()
         log_dir.mkdir(parents=True, exist_ok=True)
-        log_path = log_dir / "clickless-error.log"
+        log_path = log_dir / "officelego-error.log"
         log_path.write_text(traceback.format_exc(), encoding="utf-8")
 
         try:
@@ -110,7 +183,7 @@ def main() -> None:
             root = tk.Tk()
             root.withdraw()
             messagebox.showerror(
-                "Clickless failed to start",
+                "OfficeLego failed to start",
                 f"An error occurred. Send this file to support:\n\n{log_path}",
             )
             root.destroy()

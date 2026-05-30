@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Clickless 冒烟测试 — 本地或 CI 验证能否正常启动。"""
+"""OfficeLego 冒烟测试 — 本地或 CI 验证能否正常启动。"""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from pathlib import Path
 
 
 REQUIRED_ZIP_FILES = (
-    "Clickless/Clickless.exe",
-    "Clickless/START.bat",
-    "Clickless/windows_launch.bat",
-    "Clickless/README-Windows.txt",
+    "OfficeLego/OfficeLego.exe",
+    "OfficeLego/START.bat",
+    "OfficeLego/windows_launch.bat",
+    "OfficeLego/README-Windows.txt",
 )
 
 
@@ -23,9 +23,9 @@ def validate_zip(zip_path: Path) -> None:
 
     with zipfile.ZipFile(zip_path) as zf:
         names = set(zf.namelist())
-        internal = [n for n in names if n.startswith("Clickless/_internal/")]
+        internal = [n for n in names if n.startswith("OfficeLego/_internal/")]
         if not internal:
-            raise RuntimeError("missing Clickless/_internal/ in zip")
+            raise RuntimeError("missing OfficeLego/_internal/ in zip")
 
         for item in REQUIRED_ZIP_FILES:
             if item.endswith("/") or item.endswith("\\"):
@@ -33,8 +33,8 @@ def validate_zip(zip_path: Path) -> None:
             if item not in names:
                 raise RuntimeError(f"missing in zip: {item}")
 
-        start_bat = zf.read("Clickless/START.bat").decode("utf-8", errors="replace")
-        for needle in ("Clickless.exe", "_internal", "tasklist"):
+        start_bat = zf.read("OfficeLego/START.bat").decode("utf-8", errors="replace")
+        for needle in ("OfficeLego.exe", "_internal", "tasklist"):
             if needle not in start_bat:
                 raise RuntimeError(f"START.bat missing marker: {needle}")
 
@@ -76,7 +76,7 @@ def validate_source() -> None:
 
     root = tk.Tk()
     root.withdraw()
-    root.title("Clickless smoke")
+    root.title("OfficeLego smoke")
     root.update_idletasks()
     root.destroy()
 
@@ -90,7 +90,7 @@ def validate_source() -> None:
 
 def main() -> None:
     root = Path(__file__).resolve().parent
-    zip_path = root / "Clickless-win.zip"
+    zip_path = root / "OfficeLego-win.zip"
 
     validate_source()
     if zip_path.exists():

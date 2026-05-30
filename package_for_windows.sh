@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")"
 
-OUT="Clickless-Windows-src.zip"
+OUT="OfficeLego-Windows-src.zip"
 rm -f "$OUT"
 
 zip -r "$OUT" \
@@ -18,4 +18,4 @@ echo ""
 echo "发给同事后让他:"
 echo "  1. 解压"
 echo "  2. 双击 build_win.bat"
-echo "  3. 使用 dist\\Clickless-win.zip 或 dist\\Clickless\\Clickless.exe"
+echo "  3. 使用 dist\\OfficeLego-win.zip 或 dist\\OfficeLego\\OfficeLego.exe"

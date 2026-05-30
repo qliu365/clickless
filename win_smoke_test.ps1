@@ -1,13 +1,13 @@
 # Windows 安装包虚拟冒烟测试（GitHub Actions / 本地 Windows）
 $ErrorActionPreference = "Stop"
 
-$AppDir = Join-Path $PSScriptRoot "dist\Clickless"
+$AppDir = Join-Path $PSScriptRoot "dist\OfficeLego"
 if (-not (Test-Path $AppDir)) {
     throw "Build output not found: $AppDir (run pyinstaller first)"
 }
 
 $Required = @(
-    "Clickless.exe",
+    "OfficeLego.exe",
     "_internal",
     "START.bat",
     "windows_launch.bat",
@@ -22,15 +22,15 @@ foreach ($name in $Required) {
 Write-Host "[OK] package files present"
 
 $bat = Get-Content (Join-Path $AppDir "START.bat") -Raw
-foreach ($needle in @("Clickless.exe", "_internal", "tasklist")) {
+foreach ($needle in @("OfficeLego.exe", "_internal", "tasklist")) {
     if ($bat -notmatch [regex]::Escape($needle)) {
         throw "START.bat missing: $needle"
     }
 }
 Write-Host "[OK] START.bat content"
 
-Write-Host "Launching Clickless.exe for 8 seconds..."
-$proc = Start-Process -FilePath (Join-Path $AppDir "Clickless.exe") `
+Write-Host "Launching OfficeLego.exe for 8 seconds..."
+$proc = Start-Process -FilePath (Join-Path $AppDir "OfficeLego.exe") `
     -WorkingDirectory $AppDir `
     -PassThru `
     -WindowStyle Normal
@@ -38,29 +38,29 @@ $proc = Start-Process -FilePath (Join-Path $AppDir "Clickless.exe") `
 Start-Sleep -Seconds 8
 
 if ($proc.HasExited) {
-    $log = Join-Path $env:LOCALAPPDATA "Clickless\clickless-error.log"
-    Write-Host "--- clickless-error.log ---"
+    $log = Join-Path $env:LOCALAPPDATA "OfficeLego\officelego-error.log"
+    Write-Host "--- officelego-error.log ---"
     if (Test-Path $log) {
         Get-Content $log
     } else {
         Write-Host "(no log file)"
     }
-    throw "Clickless.exe exited early with code $($proc.ExitCode)"
+    throw "OfficeLego.exe exited early with code $($proc.ExitCode)"
 }
 
-Write-Host "[OK] Clickless.exe still running after 8s"
+Write-Host "[OK] OfficeLego.exe still running after 8s"
 Stop-Process -Id $proc.Id -Force
 
 Write-Host "Running mouse self-test..."
-$env:CLICKLESS_CI = "1"
-$test = Start-Process -FilePath (Join-Path $AppDir "Clickless.exe") `
+$env:OFFICELEGO_CI = "1"
+$test = Start-Process -FilePath (Join-Path $AppDir "OfficeLego.exe") `
     -ArgumentList "--self-test" `
     -WorkingDirectory $AppDir `
     -PassThru `
     -Wait `
     -WindowStyle Normal
 if ($test.ExitCode -ne 0) {
-    $log = Join-Path $env:LOCALAPPDATA "Clickless\self-test.log"
+    $log = Join-Path $env:LOCALAPPDATA "OfficeLego\self-test.log"
     if (Test-Path $log) { Get-Content $log }
     throw "Self-test failed with exit code $($test.ExitCode)"
 }

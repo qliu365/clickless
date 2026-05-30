@@ -1,4 +1,4 @@
-# OfficeLEGO
+# OfficeLego
 
 **产品官网（中英文）：** [https://qliu365.github.io/clickless/](https://qliu365.github.io/clickless/)  
 **English:** [https://qliu365.github.io/clickless/index-en.html](https://qliu365.github.io/clickless/index-en.html)

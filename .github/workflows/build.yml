@@ -1,4 +1,4 @@
-name: Build Clickless
+name: Build OfficeLego
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
 
       - name: Build exe
         run: |
-          pyinstaller --noconfirm --clean clickless.spec
+          pyinstaller --noconfirm --clean officelego.spec
 
       - name: Smoke test (source)
         run: |
@@ -29,13 +29,13 @@ jobs:
 
       - name: Create zip
         run: |
-          Copy-Item -Path "README-Windows.txt" -Destination "dist\Clickless\README-Windows.txt" -Force
-          Copy-Item -Path "START.bat" -Destination "dist\Clickless\START.bat" -Force
-          Copy-Item -Path "windows_launch.bat" -Destination "dist\Clickless\windows_launch.bat" -Force
-          Copy-Item -Path "TEST.bat" -Destination "dist\Clickless\TEST.bat" -Force
-          Copy-Item -Path "启动 Clickless.vbs" -Destination "dist\Clickless\启动 Clickless.vbs" -Force
-          Copy-Item -Path "同事请看.txt" -Destination "dist\Clickless\同事请看.txt" -Force
-          Compress-Archive -Path dist\Clickless -DestinationPath dist\Clickless-win.zip -Force
+          Copy-Item -Path "README-Windows.txt" -Destination "dist\OfficeLego\README-Windows.txt" -Force
+          Copy-Item -Path "START.bat" -Destination "dist\OfficeLego\START.bat" -Force
+          Copy-Item -Path "windows_launch.bat" -Destination "dist\OfficeLego\windows_launch.bat" -Force
+          Copy-Item -Path "TEST.bat" -Destination "dist\OfficeLego\TEST.bat" -Force
+          Copy-Item -Path "启动 OfficeLego.vbs" -Destination "dist\OfficeLego\启动 OfficeLego.vbs" -Force
+          Copy-Item -Path "同事请看.txt" -Destination "dist\OfficeLego\同事请看.txt" -Force
+          Compress-Archive -Path dist\OfficeLego -DestinationPath dist\OfficeLego-win.zip -Force
 
       - name: Smoke test (Windows exe)
         run: powershell -ExecutionPolicy Bypass -File win_smoke_test.ps1
@@ -43,8 +43,8 @@ jobs:
       - name: Upload Windows package
         uses: actions/upload-artifact@v4
         with:
-          name: Clickless-win
-          path: dist/Clickless-win.zip
+          name: OfficeLego-win
+          path: dist/OfficeLego-win.zip
 
   build-macos:
     runs-on: macos-latest
@@ -62,18 +62,18 @@ jobs:
 
       - name: Build app
         run: |
-          pyinstaller --noconfirm --clean --windowed --name Clickless \
-            --osx-bundle-identifier com.clickless.app \
+          pyinstaller --noconfirm --clean --windowed --name OfficeLego \
+            --osx-bundle-identifier com.officelego.app \
             --hidden-import=pynput.keyboard._darwin \
             --hidden-import=pynput.mouse._darwin \
             --hidden-import=ApplicationServices \
             --hidden-import=Quartz \
             --exclude-module keyboard \
             main.py
-          cd dist && zip -r Clickless-mac.zip Clickless.app
+          cd dist && zip -r OfficeLego-mac.zip OfficeLego.app
 
       - name: Upload macOS package
         uses: actions/upload-artifact@v4
         with:
-          name: Clickless-mac
-          path: dist/Clickless-mac.zip
+          name: OfficeLego-mac
+          path: dist/OfficeLego-mac.zip

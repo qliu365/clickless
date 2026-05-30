@@ -4,10 +4,10 @@ build/
 __pycache__/
 *.pyc
 .DS_Store
-Clickless.app/
+OfficeLego.app/
 *.spec
-!clickless.spec
+!officelego.spec
 .gh-artifacts/
-Clickless-Windows-src.zip
-Clickless-win.zip
-Clickless-mac.zip
+OfficeLego-Windows-src.zip
+OfficeLego-win.zip
+OfficeLego-mac.zip

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OfficeLego</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <header class="brand">
+        <span class="brand-mark">◉</span>
+        <div>
+          <h1>OfficeLego</h1>
+          <p class="subtitle">Record once, replay forever</p>
+        </div>
+      </header>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Saved flows</h2>
+          <button type="button" id="btn-refresh-flows" class="icon-btn" title="Refresh">↻</button>
+        </div>
+        <ul id="flow-list" class="item-list"></ul>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Modules</h2>
+          <button type="button" id="btn-refresh-modules" class="icon-btn" title="Refresh">↻</button>
+        </div>
+        <ul id="module-list" class="item-list"></ul>
+      </section>
+
+      <section class="panel options">
+        <h2>Options</h2>
+        <label class="check">
+          <input type="checkbox" id="opt-auto-correct" checked />
+          Auto-correct flow
+        </label>
+        <label class="check">
+          <input type="checkbox" id="opt-wait-load" checked />
+          Wait for page load after clicks
+        </label>
+        <label class="field">
+          <span>Playback speed</span>
+          <input type="number" id="opt-speed" min="0.1" max="5" step="0.1" value="1" />
+        </label>
+      </section>
+
+      <p class="agent-note">
+        录制/回放在这台 Mac 上执行。请授予 Terminal / Python「辅助功能」与「输入监控」。
+      </p>
+      <button type="button" id="btn-logout" class="btn ghost" style="width:100%;margin-top:0.5rem">
+        Sign out
+      </button>
+    </aside>
+
+    <main class="workspace">
+      <div id="public-banner" class="banner public-banner hidden"></div>
+      <div id="perm-banner" class="banner hidden">
+        <p id="perm-text"></p>
+        <button type="button" id="btn-perm-prompt" class="btn ghost">Request permissions</button>
+      </div>
+
+      <header class="toolbar">
+        <div class="toolbar-row">
+          <button type="button" id="btn-record" class="btn primary">Record</button>
+          <button type="button" id="btn-stop-record" class="btn danger" disabled>Stop</button>
+          <button type="button" id="btn-pause" class="btn ghost" disabled>Pause</button>
+          <button type="button" id="btn-resume" class="btn ghost" disabled>Resume</button>
+          <button type="button" id="btn-run" class="btn accent">Run</button>
+          <button type="button" id="btn-stop-play" class="btn ghost" disabled>Stop playback</button>
+        </div>
+        <div class="toolbar-row record-loop hidden" id="record-loop-bar">
+          <span class="loop-label">Excel loop:</span>
+          <button type="button" id="btn-loop-pick" class="btn ghost">Select cells</button>
+          <button type="button" id="btn-loop-wps" class="btn ghost">WPS rows…</button>
+          <button type="button" id="btn-loop-done" class="btn ghost">Loop body done</button>
+        </div>
+        <div class="toolbar-row">
+          <input type="text" id="flow-name" placeholder="Flow name" />
+          <button type="button" id="btn-save" class="btn">Save flow</button>
+          <button type="button" id="btn-insert-text" class="btn ghost">Insert text</button>
+          <button type="button" id="btn-save-module" class="btn ghost">Save as module</button>
+          <button type="button" id="btn-insert-module" class="btn ghost">Insert module</button>
+          <button type="button" id="btn-insert-loop" class="btn ghost">Loop</button>
+          <button type="button" id="btn-delete-steps" class="btn ghost">Delete</button>
+          <button type="button" id="btn-edit-step" class="btn ghost">Edit</button>
+        </div>
+      </header>
+
+      <div id="status-bar" class="status-bar">Ready</div>
+      <p id="range-pick-hint" class="hint hidden"></p>
+
+      <div class="editor-split">
+        <section class="steps-panel">
+          <h2>Steps <span id="step-count" class="muted">0</span></h2>
+          <p class="hint">Check steps to select · Shift+click for range</p>
+          <ul id="step-list" class="step-list"></ul>
+          <p id="empty-steps" class="empty">No steps yet. Record in your apps, then Stop.</p>
+        </section>
+
+        <section class="sim-panel">
+          <h2>Simulation</h2>
+          <p id="sim-caption" class="muted">Select a click step to preview before/after</p>
+          <div class="sim-thumbs">
+            <figure>
+              <figcaption>Before click</figcaption>
+              <img id="sim-before" alt="Before click" class="sim-img hidden" />
+              <div id="sim-before-empty" class="sim-placeholder">—</div>
+            </figure>
+            <figure>
+              <figcaption>After click</figcaption>
+              <img id="sim-after" alt="After click" class="sim-img hidden" />
+              <div id="sim-after-empty" class="sim-placeholder">—</div>
+            </figure>
+          </div>
+          <pre id="sim-step-json" class="step-json hidden"></pre>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal" role="dialog">
+      <h3 id="modal-title">Dialog</h3>
+      <div id="modal-body"></div>
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="modal-ok" class="btn accent">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 """
 Windows / macOS 自检 — 验证鼠标能否移动和点击。
-用法: Clickless.exe --self-test
+用法: OfficeLego.exe --self-test
 """
 
 from __future__ import annotations
@@ -111,33 +111,33 @@ def run_self_test() -> int:
     report = "\n".join(lines)
     log_path = Path.home()
     if sys.platform == "win32":
-        log_path = log_path / "AppData" / "Local" / "Clickless"
+        log_path = log_path / "AppData" / "Local" / "OfficeLego"
     elif sys.platform == "darwin":
-        log_path = log_path / "Library" / "Application Support" / "Clickless"
+        log_path = log_path / "Library" / "Application Support" / "OfficeLego"
     else:
-        log_path = log_path / ".clickless"
+        log_path = log_path / ".officelego"
     log_path.mkdir(parents=True, exist_ok=True)
     log_file = log_path / "self-test.log"
     log_file.write_text(report + "\n", encoding="utf-8")
 
-    title = "Clickless self-test passed" if ok else "Clickless self-test failed"
+    title = "OfficeLego self-test passed" if ok else "OfficeLego self-test failed"
     body = report + f"\n\nLog saved to:\n{log_file}"
     if not ok and sys.platform == "darwin":
         body += (
             "\n\nIf the mouse did not move on Mac:\n"
             "1. System Settings → Privacy → Accessibility → enable Terminal (or Python)\n"
             "2. Also enable Input Monitoring for the same app\n"
-            "3. Restart Clickless after granting permission"
+            "3. Restart OfficeLego after granting permission"
         )
     if not ok and sys.platform == "win32":
         body += (
             "\n\nIf the mouse did not move:\n"
             "1. Run TEST.bat as administrator\n"
-            "2. Allow Clickless in antivirus\n"
+            "2. Allow OfficeLego in antivirus\n"
             "3. Send self-test.log to support"
         )
 
-    ci_mode = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CLICKLESS_CI") == "1"
+    ci_mode = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("OFFICELEGO_CI") == "1"
     if ci_mode:
         print(body)
     else:

@@ -21,7 +21,7 @@ if errorlevel 1 (
 
 echo.
 echo ========================================
-echo   Clickless Windows 打包
+echo   OfficeLego Windows 打包
 echo ========================================
 echo.
 
@@ -34,7 +34,7 @@ if errorlevel 1 (
 )
 
 echo ^>^>^> 开始打包（约 1-3 分钟）...
-%PY% -m PyInstaller --noconfirm --clean clickless.spec
+%PY% -m PyInstaller --noconfirm --clean officelego.spec
 if errorlevel 1 (
   echo [错误] 打包失败
   pause
@@ -42,14 +42,14 @@ if errorlevel 1 (
 )
 
 echo ^>^>^> 复制说明文件...
-copy /Y "README-Windows.txt" "dist\Clickless\" >nul
-copy /Y "windows_launch.bat" "dist\Clickless\" >nul
-copy /Y "同事请看.txt" "dist\Clickless\" >nul
+copy /Y "README-Windows.txt" "dist\OfficeLego\" >nul
+copy /Y "windows_launch.bat" "dist\OfficeLego\" >nul
+copy /Y "同事请看.txt" "dist\OfficeLego\" >nul
 
 echo ^>^>^> 生成 zip...
 cd dist
-if exist Clickless-win.zip del Clickless-win.zip
-powershell -NoProfile -Command "Compress-Archive -Path 'Clickless' -DestinationPath 'Clickless-win.zip' -Force"
+if exist OfficeLego-win.zip del OfficeLego-win.zip
+powershell -NoProfile -Command "Compress-Archive -Path 'OfficeLego' -DestinationPath 'OfficeLego-win.zip' -Force"
 if errorlevel 1 (
   echo [错误] zip 生成失败
   pause
@@ -62,9 +62,9 @@ echo   完成！
 echo ========================================
 echo.
 echo 安装包:
-echo   %CD%\Clickless-win.zip
+echo   %CD%\OfficeLego-win.zip
 echo.
-echo 同事用法：解压整个 Clickless 文件夹，双击 windows_launch.bat
+echo 同事用法：解压整个 OfficeLego 文件夹，双击 windows_launch.bat
 echo.
 pause
 endlocal
